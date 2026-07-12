@@ -1,3 +1,8 @@
+export interface PastaNavegacao {
+  externalKey: string
+  nome: string
+}
+
 export interface ArquivoBuscaResultado {
   externalKey: string
   tipo: 'Pasta' | 'Envio'

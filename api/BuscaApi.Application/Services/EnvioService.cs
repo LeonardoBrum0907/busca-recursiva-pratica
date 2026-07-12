@@ -19,16 +19,8 @@ public class EnvioService(
         var conta = await contaRepository.GetByExternalKeyAsync(query.ExternalKeyConta)
                     ?? throw new DataNotFoundException("Conta não encontrada");
 
-        if (string.IsNullOrWhiteSpace(query.Termo))
-        {
-            return new Paginacao<ArquivoBuscaResultado>
-            {
-                PaginaSelecionada = query.Pagina,
-                TamanhoPagina = query.TamanhoPagina,
-                Total = 0,
-                Dados = []
-            };
-        }
+        // Termo vazio = navegacao: filhos diretos da pasta atual + envios nela.
+        // Termo preenchido = busca textual recursiva em pastas e envios.
 
         int? idPastaRaiz = null;
         if (query.ExternalKeyPasta.HasValue)

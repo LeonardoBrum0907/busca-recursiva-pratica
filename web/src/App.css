@@ -94,6 +94,47 @@ header h1 {
   color: #6b7280;
 }
 
+.navegacao-pastas {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 12px 0 4px;
+  font-size: 0.85rem;
+}
+
+.navegacao-segmento {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.navegacao-separador {
+  color: #9ca3af;
+  margin: 0 2px;
+}
+
+.navegacao-link {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: #2563eb;
+  cursor: pointer;
+  font: inherit;
+}
+
+.navegacao-link:hover {
+  background: rgba(37, 99, 235, 0.08);
+  text-decoration: underline;
+}
+
+.navegacao-atual {
+  font-weight: 600;
+  color: #374151;
+  padding: 2px 4px;
+}
+
 .dica,
 .erro {
   margin-top: 16px;
@@ -124,6 +165,28 @@ header h1 {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
+}
+
+.resultado-clicavel:hover {
+  border-color: #93c5fd;
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.resultado-item-btn {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.resultado-item-btn:hover .resultado-nome {
+  color: #2563eb;
 }
 
 .icone {
@@ -209,5 +272,18 @@ header h1 {
   .badge-status {
     background: #374151;
     color: #d1d5db;
+  }
+  .navegacao-atual {
+    color: #e5e7eb;
+  }
+  .navegacao-link {
+    color: #60a5fa;
+  }
+  .resultado-clicavel:hover {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: #3b82f6;
+  }
+  .resultado-item-btn:hover .resultado-nome {
+    color: #93c5fd;
   }
 }

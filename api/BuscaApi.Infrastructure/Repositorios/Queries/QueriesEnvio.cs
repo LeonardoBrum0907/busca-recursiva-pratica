@@ -11,6 +11,10 @@ public static class QueriesEnvio
     // - Subarvore: expande a subarvore a partir da raiz (@idPastaRaiz) ou da conta,
     //   montando o caminho legivel (ex.: "Clientes > 2026 > ACME").
     // - Pastas / Envios: aplicam o filtro textual (ILIKE) sobre a subarvore.
+    //
+    // Quando @termo e vazio o comportamento e de "navegacao": devolve apenas os
+    // filhos diretos da pasta atual (ou pastas-raiz da conta) e os envios
+    // contidos nela. Quando ha termo, faz a busca textual recursiva na subarvore.
     public const string QueryBuscaArquivos = @"
 WITH RECURSIVE PastasPermitidas AS (
     -- Usuario admin (@idUsuarioFiltro IS NULL): todas as pastas da conta
@@ -77,7 +81,13 @@ Pastas AS (
     FROM Subarvore s
     WHERE @incluirPastas = TRUE
       AND s.nomepasta ILIKE '%' || @termo || '%'
-      AND (@idPastaRaiz::int IS NULL OR s.idpasta <> @idPastaRaiz)
+      AND (
+          (@termo = '' AND (
+              (@idPastaRaiz::int IS NULL AND s.idpastapai IS NULL)
+              OR s.idpastapai = @idPastaRaiz
+          ))
+          OR (@termo <> '' AND (@idPastaRaiz::int IS NULL OR s.idpasta <> @idPastaRaiz))
+      )
 ),
 Envios AS (
     SELECT
@@ -100,7 +110,10 @@ Envios AS (
           AND d.email <> ''
     ) DEST ON true
     WHERE e.statusregistro = 0
-      AND e.assunto ILIKE '%' || @termo || '%'
+      AND (
+          (@termo <> '' AND e.assunto ILIKE '%' || @termo || '%')
+          OR (@termo = '' AND @idPastaRaiz::int IS NOT NULL AND e.idpasta = @idPastaRaiz)
+      )
 ),
 Resultado AS (
     SELECT * FROM Pastas
@@ -120,9 +133,11 @@ SELECT
     COUNT(*) OVER ()    AS Total
 FROM Resultado
 ORDER BY
-    CASE WHEN LOWER(nome) = LOWER(@termo) THEN 0
+    CASE WHEN @termo = '' THEN CASE WHEN tipo = 'Pasta' THEN 0 ELSE 1 END
+         WHEN LOWER(nome) = LOWER(@termo) THEN 0
          WHEN LOWER(nome) LIKE LOWER(@termo) || '%' THEN 1
          ELSE 2 END,
+    caminho,
     tipo,
     nome
 LIMIT @tamanhoPagina OFFSET @offset;";

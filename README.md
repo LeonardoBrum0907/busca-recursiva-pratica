@@ -89,12 +89,21 @@ GET /api/envio/conta/{externalKeyConta}/buscar
     &tamanhoPagina=50
 ```
 
+Quando `termo` está **vazio**, o endpoint funciona em modo *navegação*: devolve os
+**filhos diretos** da pasta atual (pastas-raiz na conta, ou subpastas + envios
+dentro da pasta aberta). Com `termo` preenchido, faz a busca textual recursiva.
+
 O usuário corrente é simulado pelo header **`X-Auth-Key`** (GUID do usuário).
 No frontend há um seletor de usuário:
 
 - **Ana (admin)** — vê todas as pastas/envios da conta.
 - **Maria (Financeiro)** — só vê o ramo `Financeiro` (graças ao filtro
   `rlcusuariopasta` aplicado dentro da CTE recursiva).
+
+Ao abrir o app (campo de busca vazio):
+
+- Como **Ana (admin)**, aparecem as pastas-raiz da conta.
+- Como **Maria**, aparece apenas o ramo `Financeiro` (e subpastas ao navegar).
 
 Experimente buscar por `contrato`:
 

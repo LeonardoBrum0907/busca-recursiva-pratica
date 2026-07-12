@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { USUARIOS_DEMO } from './config'
 import { useDebounce } from './hooks/useDebounce'
 import { buscarArquivos } from './services/envioService'
-import type { ArquivoBuscaResultado } from './types'
+import type { ArquivoBuscaResultado, PastaNavegacao } from './types'
 import { ListaResultados } from './components/ListaResultados'
+import { NavegacaoPastas } from './components/NavegacaoPastas'
 import './App.css'
 
 const MIN_CARACTERES = 2
@@ -12,6 +13,7 @@ const DEBOUNCE_MS = 300
 export default function App() {
   const [authKey, setAuthKey] = useState(USUARIOS_DEMO[0].authKey)
   const [termo, setTermo] = useState('')
+  const [pilhaPastas, setPilhaPastas] = useState<PastaNavegacao[]>([])
   const [itens, setItens] = useState<ArquivoBuscaResultado[]>([])
   const [total, setTotal] = useState(0)
   const [buscando, setBuscando] = useState(false)
@@ -20,17 +22,20 @@ export default function App() {
   const termoDebounced = useDebounce(termo, DEBOUNCE_MS)
   const abortRef = useRef<AbortController | null>(null)
 
+  const pastaAtual = pilhaPastas.length > 0 ? pilhaPastas[pilhaPastas.length - 1] : null
+  const navegando = termo.trim().length === 0
+
+  useEffect(() => {
+    setPilhaPastas([])
+  }, [authKey])
+
   useEffect(() => {
     const termoLimpo = termoDebounced.trim()
 
-    // Aborta a busca anterior ainda em voo
     abortRef.current?.abort()
 
-    if (termoLimpo.length < MIN_CARACTERES) {
-      setItens([])
-      setTotal(0)
+    if (termoLimpo.length > 0 && termoLimpo.length < MIN_CARACTERES) {
       setBuscando(false)
-      setErro(null)
       return
     }
 
@@ -40,7 +45,10 @@ export default function App() {
     setBuscando(true)
     setErro(null)
 
-    buscarArquivos(termoLimpo, authKey, { signal: controller.signal })
+    buscarArquivos(termoLimpo, authKey, {
+      externalKeyPasta: pastaAtual?.externalKey ?? null,
+      signal: controller.signal,
+    })
       .then((resultado) => {
         setItens(resultado.dados)
         setTotal(resultado.total)
@@ -56,14 +64,44 @@ export default function App() {
       })
 
     return () => controller.abort()
-  }, [termoDebounced, authKey])
+  }, [termoDebounced, authKey, pastaAtual?.externalKey])
+
+  function entrarNaPasta(pasta: ArquivoBuscaResultado) {
+    setPilhaPastas((atual) => [
+      ...atual,
+      { externalKey: pasta.externalKey, nome: pasta.nome },
+    ])
+  }
+
+  function navegarPara(indice: number) {
+    if (indice < 0) {
+      setPilhaPastas([])
+      return
+    }
+    setPilhaPastas((atual) => atual.slice(0, indice + 1))
+  }
+
+  const contadorPastas = itens.filter((i) => i.tipo === 'Pasta').length
+  const contadorEnvios = itens.filter((i) => i.tipo === 'Envio').length
+
+  function textoContador(): string {
+    if (!navegando) return `${total} resultado(s)`
+
+    if (contadorEnvios === 0) return `${contadorPastas} pasta(s)`
+
+    const partes: string[] = []
+    if (contadorPastas > 0) partes.push(`${contadorPastas} pasta(s)`)
+    if (contadorEnvios > 0) partes.push(`${contadorEnvios} envio(s)`)
+    return partes.join(', ')
+  }
 
   return (
     <div className="container">
       <header>
-        <h1>Busca recursiva de arquivos</h1>
+        <h1>Pastas e busca recursiva</h1>
         <p className="subtitulo">
-          Pratica de busca textual recursiva (Pasta &gt; Envio) com filtro de permissoes.
+          Navegue pelas pastas e envios permitidos ou use a busca textual recursiva
+          respeitando as permissoes.
         </p>
       </header>
 
@@ -87,7 +125,9 @@ export default function App() {
 
       <section className="busca">
         <div className="campo-busca">
-          <span className="lupa" aria-hidden>🔍</span>
+          <span className="lupa" aria-hidden>
+            🔍
+          </span>
           <input
             type="text"
             placeholder="Pesquisar pastas e envios..."
@@ -97,14 +137,21 @@ export default function App() {
           />
           {buscando && <span className="spinner" title="Buscando..." />}
         </div>
-        {termo.trim().length >= MIN_CARACTERES && !buscando && !erro && (
-          <p className="contador">{total} resultado(s)</p>
+        {!buscando && !erro && !(termo.trim().length > 0 && termo.trim().length < MIN_CARACTERES) && (
+          <p className="contador">{textoContador()}</p>
         )}
       </section>
 
+      {navegando && <NavegacaoPastas pilha={pilhaPastas} onNavegar={navegarPara} />}
+
       {erro && <p className="erro">{erro}</p>}
 
-      <ListaResultados itens={itens} termo={termo} />
+      <ListaResultados
+        itens={itens}
+        termo={termo}
+        navegando={navegando}
+        onPastaClick={navegando ? entrarNaPasta : undefined}
+      />
     </div>
   )
 }

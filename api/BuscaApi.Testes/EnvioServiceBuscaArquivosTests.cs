@@ -47,8 +47,8 @@ public class EnvioServiceBuscaArquivosTests
         await Assert.ThrowsAsync<DataNotFoundException>(() => _envioService.BuscarArquivosAsync(query));
     }
 
-    [Fact(DisplayName = "Deve retornar paginação vazia sem consultar o repositório quando o termo é vazio")]
-    public async Task BuscarArquivosAsync_TermoVazio_RetornaPaginacaoVazia()
+    [Fact(DisplayName = "Deve listar conteúdo da pasta (consultando o repositório com termo vazio) quando não há termo")]
+    public async Task BuscarArquivosAsync_TermoVazio_ListaConteudoDaPasta()
     {
         // Arrange
         var conta = new Conta { IdConta = 1, ExternalKey = Guid.NewGuid() };
@@ -58,19 +58,30 @@ public class EnvioServiceBuscaArquivosTests
             Termo = "   "
         };
 
+        var itensRepo = new List<ArquivoBuscaResultado>
+        {
+            new() { ExternalKey = Guid.NewGuid(), Tipo = "Pasta", Nome = "Financeiro",
+                    Caminho = "Financeiro" }
+        };
+
         _contaRepoMock
             .Setup(x => x.GetByExternalKeyAsync(conta.ExternalKey))
             .ReturnsAsync(conta);
+        _authUserMock
+            .Setup(x => x.IsAdmin(1))
+            .Returns(true);
+        _envioRepoMock
+            .Setup(x => x.BuscarArquivosAsync(1, null, "", true, 1, 50, null))
+            .ReturnsAsync(((IReadOnlyList<ArquivoBuscaResultado>)itensRepo, 1));
 
         // Act
         var resultado = await _envioService.BuscarArquivosAsync(query);
 
         // Assert
-        Assert.Equal(0, resultado.Total);
-        Assert.Empty(resultado.Dados);
-        _envioRepoMock.Verify(x => x.BuscarArquivosAsync(
-            It.IsAny<int>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<bool>(),
-            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int?>()), Times.Never);
+        Assert.Equal(1, resultado.Total);
+        Assert.Single(resultado.Dados);
+        Assert.Equal("Financeiro", resultado.Dados[0].Nome);
+        _envioRepoMock.Verify(x => x.BuscarArquivosAsync(1, null, "", true, 1, 50, null), Times.Once);
     }
 
     [Fact(DisplayName = "Deve repassar parâmetros ao repositório e devolver paginação populada (admin)")]
