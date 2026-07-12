@@ -14,7 +14,7 @@ cd "c:/Users/Leonardo.Brum/projetos/busca-recursiva-pratica"
 
 ## Pré-requisitos
 
-- .NET SDK 9
+- .NET SDK 10
 - Node.js 18+ (com npm)
 - Docker Desktop (para o PostgreSQL)
 - Git e GitHub CLI (`gh`) autenticado (`gh auth login`)
@@ -36,7 +36,7 @@ gh --version
 docker compose up -d
 ```
 
-Isso cria o container `busca_postgres` na porta `5432` e executa automaticamente
+Isso cria o container `busca_postgres` na porta `15432` e executa automaticamente
 `db/01_schema.sql` e `db/02_seed.sql` na primeira subida.
 
 Conferir se subiu:
@@ -50,7 +50,7 @@ docker compose logs postgres | tail -n 20
 
 ---
 
-## 2. API (.NET 9) — restore, testes e build
+## 2. API (.NET 10) — restore, testes e build
 
 ```bash
 cd api
@@ -118,7 +118,7 @@ cd "c:/Users/Leonardo.Brum/projetos/busca-recursiva-pratica"
 
 git init
 git add .
-git commit -m "feat: projeto de pratica de busca recursiva (API .NET 9 + React/Vite)"
+git commit -m "feat: projeto de pratica de busca recursiva (API .NET 10 + React/Vite)"
 
 # Confirme que o gh esta logado:
 gh auth status
@@ -138,9 +138,9 @@ Ao final, o `gh` mostra a URL do repositório criado.
 
 - **API não conecta ao banco:** confirme `docker compose ps` (container `healthy`) e
   a connection string em `api/BuscaApi/appsettings.json`
-  (`Host=localhost;Port=5432;Database=busca;Username=busca;Password=busca`).
-- **Porta 5432 ocupada:** ajuste o mapeamento em `docker-compose.yml` (ex.: `"5433:5432"`)
-  e a connection string para `Port=5433`.
+  (`Host=localhost;Port=15432;Database=busca;Username=busca;Password=busca`).
+- **Porta 15432 ocupada:** ajuste o mapeamento em `docker-compose.yml` (ex.: `"15433:5432"`)
+  e a connection string para `Port=15433`.
 - **CORS no frontend:** o dev server usa proxy (`/api`), então não deve ocorrer. Se
   rodar o front em outra porta, ajuste `WithOrigins(...)` em `api/BuscaApi/Program.cs`.
 - **`gh` não autenticado:** rode `gh auth login` e repita o passo 5.

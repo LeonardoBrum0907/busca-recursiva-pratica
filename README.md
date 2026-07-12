@@ -10,7 +10,7 @@ devolvendo o caminho completo de cada item.
 | Camada | Tecnologia |
 |---|---|
 | Frontend | React + TypeScript + Vite |
-| Backend | .NET 9, Clean Architecture (Domain / Application / Infrastructure / API) |
+| Backend | .NET 10, Clean Architecture (Domain / Application / Infrastructure / API) |
 | Acesso a dados | Dapper + Npgsql |
 | Banco | PostgreSQL 16 (`WITH RECURSIVE`, `ILIKE`, `pg_trgm`) |
 | Testes | xUnit + Moq |
@@ -49,12 +49,12 @@ RH
 docker compose up -d
 ```
 
-Sobe o PostgreSQL na porta `5432` e executa automaticamente `db/01_schema.sql`
+Sobe o PostgreSQL na porta `15432` (mapeada para `5432` no container) e executa automaticamente `db/01_schema.sql`
 e `db/02_seed.sql`.
 
 > Para recriar do zero (reaplicar schema/seed): `docker compose down -v && docker compose up -d`.
 
-### 2. API (.NET 9)
+### 2. API (.NET 10)
 
 ```bash
 cd api
@@ -114,7 +114,7 @@ dotnet test BuscaApi.sln
 busca-recursiva-pratica/
   docker-compose.yml
   db/                  # schema + seed (executados na 1a subida do container)
-  api/                 # solução .NET 9
+  api/                 # solução .NET 10
     BuscaApi.Domain/        # entidades, DTOs, interfaces
     BuscaApi.Application/   # EnvioService (regra de negócio + permissões)
     BuscaApi.Infrastructure/# Dapper + query WITH RECURSIVE
