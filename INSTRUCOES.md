@@ -1,23 +1,13 @@
-# Instruções para finalizar e publicar o projeto
+# Instruções de execução
 
-O código está **100% escrito e revisado**. Faltam apenas os passos que dependem de
-terminal (não foi possível executá-los no ambiente atual): instalar dependências,
-rodar build/testes, subir o banco e **criar/publicar o repositório no GitHub**.
-
-Execute os comandos abaixo na ordem. Todos partem da raiz do projeto:
-
-```bash
-cd "c:/Users/Leonardo.Brum/projetos/busca-recursiva-pratica"
-```
-
----
+Como subir, rodar e validar o projeto. Todos os comandos partem da raiz do
+repositório.
 
 ## Pré-requisitos
 
-- .NET SDK 9
+- .NET SDK 10
 - Node.js 18+ (com npm)
 - Docker Desktop (para o PostgreSQL)
-- Git e GitHub CLI (`gh`) autenticado (`gh auth login`)
 
 Verifique rapidamente:
 
@@ -25,66 +15,46 @@ Verifique rapidamente:
 dotnet --version
 node --version
 docker --version
-gh --version
 ```
 
 ---
 
 ## 1. Subir o ambiente em containers (recomendado)
 
-Na raiz do projeto:
+O Postgres é único e compartilhado pelas duas branches — dois bancos gravando no mesmo
+volume corromperiam os dados. Por isso ele vive num compose separado:
 
 ```bash
 docker compose -f docker-compose.db.yml up -d
 docker compose up --build -d
 ```
 
-O banco é **único** (volume `busca-recursiva-pratica_pgdata`). Separar dois Postgres no
-mesmo volume não é seguro: os dois escreveriam nos mesmos arquivos. Esta branch sobe
-só a API/frontend **ingênuos**; a `busca-recursiva` sobe os recursivos.
+Nesta branch (`main`, estado inicial):
 
-- **web ingênua** — http://localhost:5173
-- **API / Swagger ingênua** — http://localhost:5080/swagger
+- **Web** — http://localhost:5173
+- **API / Swagger** — http://localhost:5080/swagger
 - **PostgreSQL (compartilhado)** — `localhost:15432`
 
-Na branch `busca-recursiva`, o mesmo par de comandos sobe a API/frontend em
-`5174` / `5081`, sem outro banco. Os dois stacks podem ficar no ar juntos.
+Na branch `busca-recursiva`, o mesmo par de comandos sobe a API/frontend em `5174` /
+`5081`, contra o mesmo banco. As duas stacks podem ficar no ar juntas para comparar.
 
-Os PDFs gerados em `web/public/documentos/volume/` são montados no container do frontend.
-
-Para ver logs: `docker compose logs -f`
-
-Para parar só esta branch (mantém o banco e o outro stack): `docker compose down`
-
-Para parar o Postgres compartilhado: `docker compose -f docker-compose.db.yml down`
-
-> Não use `down -v` no arquivo do banco se quiser preservar os dados.
-
----
-
-## 1b. Subir só o banco (desenvolvimento local)
+Os PDFs gerados em `web/public/documentos/volume/` são montados no container do
+frontend.
 
 ```bash
-docker compose -f docker-compose.db.yml up -d
+docker compose logs -f                          # logs desta branch
+docker compose down                             # para só esta branch
+docker compose -f docker-compose.db.yml down    # para o Postgres compartilhado
 ```
 
-Isso cria o container `busca_postgres` na porta `15432` e executa automaticamente
-`db/01_schema.sql` e `db/02_seed.sql` na primeira subida.
-
-Conferir se subiu:
-
-```bash
-docker compose -f docker-compose.db.yml ps
-docker compose -f docker-compose.db.yml logs postgres | tail -n 20
-```
-
-> Para recriar do zero (reaplicar schema + seed): `docker compose -f docker-compose.db.yml down -v && docker compose -f docker-compose.db.yml up -d`
+> Para recriar o banco do zero (reaplicar schema + seed):
+> `docker compose -f docker-compose.db.yml down -v && docker compose -f docker-compose.db.yml up -d`
 >
-> Isso apaga o volume compartilhado com a busca recursiva. Use só se quiser zerar os dados.
+> Isso apaga o volume compartilhado com a outra branch.
 
 ---
 
-## 2. API (.NET 9) — restore, testes e build
+## 2. API — restore, testes e build
 
 ```bash
 cd api
@@ -93,89 +63,62 @@ dotnet build BuscaApi.sln
 dotnet test BuscaApi.sln
 ```
 
-Esperado: build sem erros e **6 testes verdes**.
+Esperado: build sem erros e **5 testes verdes**.
 
-Rodar a API:
+Rodar a API fora do container:
 
 ```bash
 dotnet run --project BuscaApi
 ```
 
-- API: http://localhost:5080
-- Swagger: http://localhost:5080/swagger
-
 Teste rápido no Swagger (ou via curl), usando a conta semeada:
 
 ```bash
-# Ana (admin) — ve tudo
+# Ana (admin) — pastas-raiz da conta
 curl -H "X-Auth-Key: a0000000-0000-0000-0000-000000000001" \
-  "http://localhost:5080/api/envio/conta/11111111-1111-1111-1111-111111111111/buscar?termo=contrato"
+  "http://localhost:5080/api/envio/conta/11111111-1111-1111-1111-111111111111/itens"
 
-# Maria (restrita ao Financeiro) — ve so o ramo Financeiro
+# Maria (restrita ao Financeiro) — só o ramo Financeiro
 curl -H "X-Auth-Key: a0000000-0000-0000-0000-000000000002" \
-  "http://localhost:5080/api/envio/conta/11111111-1111-1111-1111-111111111111/buscar?termo=contrato"
+  "http://localhost:5080/api/envio/conta/11111111-1111-1111-1111-111111111111/itens"
 ```
+
+Repare que não há parâmetro `termo`: nesta branch a API não sabe o que o usuário
+digitou.
 
 ---
 
-## 3. Frontend (Vite + React) — em outro terminal
+## 3. Frontend — em outro terminal
 
 ```bash
-cd "c:/Users/Leonardo.Brum/projetos/busca-recursiva-pratica/web"
+cd web
 npm install
 npm run dev
 ```
 
-- App: http://localhost:5173 (faz proxy de `/api` para a API em :5080)
-
-No app: na raiz, digite `contrato` — a busca **não** encontra documentos nas
-subpastas. Navegue até `Financeiro > Contratos` e busque de novo.
+- App: http://localhost:5173 (faz proxy de `/api` para a API em `:5080`)
 
 ---
 
 ## 4. Checklist de validação
 
-- [ ] Buscar `contrato` na **raiz** como Ana retorna vazio (ou só pastas-raiz cujo nome case).
-- [ ] Navegar até `Financeiro > Contratos` e buscar `contrato` lista os envios daquela pasta.
-- [ ] Como **Maria**, a raiz mostra só Financeiro; `Clientes` não aparece.
-- [ ] Cada resultado mostra o **caminho** (ex.: `Clientes > 2026 > ACME`).
-- [ ] Digitar 1 caractere não dispara busca (mínimo de 2).
-- [ ] Digitação rápida dispara **uma** chamada (debounce 300 ms — ver aba Network).
-- [ ] O spinner aparece durante a busca (e a API carrega a árvore inteira a cada request).
+- [ ] Como **Ana**, a raiz lista `Clientes`, `Financeiro` e `RH`.
+- [ ] Como **Maria**, a raiz mostra só `Financeiro`; `Clientes` não aparece.
+- [ ] Digitar `contrato` na **raiz** não retorna nada — a busca não desce a árvore.
+- [ ] Navegar até `Clientes > 2026 > ACME` e digitar `contrato` lista os envios daquele nível.
+- [ ] Na aba Network, digitar **não** dispara requisição: o filtro é client-side.
+- [ ] Clicar num envio abre o preview do PDF.
 - [ ] `dotnet test BuscaApi.sln` verde.
 
 ---
 
-## 5. Publicar no GitHub (repositório público)
+## 5. Simular volume do cliente (10.000 arquivos)
 
-```bash
-cd "c:/Users/Leonardo.Brum/projetos/busca-recursiva-pratica"
+Para reproduzir a lentidão que o cliente enfrenta com milhares de arquivos, use o
+gerador de volume. Ele insere ~10.000 envios no PostgreSQL e replica o `teste.pdf`
+para cada um em `web/public/documentos/volume/`.
 
-git init
-git add .
-git commit -m "feat: projeto de pratica de busca recursiva (API .NET 9 + React/Vite)"
-
-# Confirme que o gh esta logado:
-gh auth status
-
-# Cria o repo publico e ja faz o push:
-gh repo create busca-recursiva-pratica --public --source . --push
-```
-
-> Para outro nome, troque `busca-recursiva-pratica`.
-> Se preferir privado, use `--private`.
-
-Ao final, o `gh` mostra a URL do repositório criado.
-
----
-
-## 6. Simular volume do cliente (10.000 arquivos)
-
-Para reproduzir a lentidão de busca e navegação que o cliente enfrenta com milhares
-de arquivos, use o gerador de volume. Ele insere ~10.000 envios no PostgreSQL e
-replica o `teste.pdf` para cada um em `web/public/documentos/volume/`.
-
-Pré-requisito: banco rodando (`docker compose -f docker-compose.db.yml up -d`) com o seed pequeno já aplicado.
+Pré-requisito: banco rodando com o seed pequeno já aplicado.
 
 ```bash
 cd scripts
@@ -183,12 +126,7 @@ npm install
 node gerar-volume.mjs
 ```
 
-Ou, a partir do frontend:
-
-```bash
-cd web
-npm run gerar-volume
-```
+Ou, a partir do frontend: `cd web && npm run gerar-volume`.
 
 Opções:
 
@@ -199,10 +137,11 @@ node gerar-volume.mjs --limpar            # remove volume existente e regera
 
 Após gerar, recarregue o app e teste:
 
-- Na **raiz**, busque `contrato` ou `Vol-` — quase nenhum resultado (a busca não desce).
-- Navegue em `Clientes > Volume > Setor_001 > Pasta_001` e busque `Vol-` para ver os envios **daquela pasta**.
-- Como **Maria**, só o ramo Financeiro aparece na navegação.
-- Abra um envio — o preview carrega o PDF (`/documentos/volume/{uuid}.pdf` ou `teste.pdf` no seed).
+- Na **raiz**, busque `contrato` ou `Vol-` — nenhum resultado, a busca não desce.
+- Navegue em `Clientes > Volume > Setor_001 > Pasta_001` e busque `Vol-` para ver os
+  envios **daquela pasta**.
+- Abra um envio — o preview carrega o PDF (`/documentos/volume/{uuid}.pdf`, ou
+  `teste.pdf` nos envios do seed).
 
 > Os PDFs gerados ficam em `web/public/documentos/volume/` (ignorados pelo git).
 > Estimativa de disco: ~280 MB para 10.000 arquivos.
@@ -211,12 +150,10 @@ Após gerar, recarregue o app e teste:
 
 ## Solução de problemas
 
-- **API não conecta ao banco:** confirme `docker compose -f docker-compose.db.yml ps` (container `healthy`) e
-  a connection string em `api/BuscaApi/appsettings.json`
+- **API não conecta ao banco:** confirme `docker compose -f docker-compose.db.yml ps`
+  (container `healthy`) e a connection string em `api/BuscaApi/appsettings.json`
   (`Host=localhost;Port=15432;Database=busca;Username=busca;Password=busca`).
-- **Porta 15432 ocupada:** ajuste o mapeamento em `docker-compose.db.yml` (ex.: `"15433:5432"`)
-  e a connection string para `Port=15433`.
+- **Porta 15432 ocupada:** ajuste o mapeamento em `docker-compose.db.yml`
+  (ex.: `"15433:5432"`) e a connection string para `Port=15433`.
 - **CORS no frontend:** o dev server usa proxy (`/api`), então não deve ocorrer. Se
   rodar o front em outra porta, ajuste `WithOrigins(...)` em `api/BuscaApi/Program.cs`.
-- **`gh` não autenticado:** rode `gh auth login` e repita o passo 5.
-```

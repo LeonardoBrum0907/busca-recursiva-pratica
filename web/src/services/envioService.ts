@@ -1,33 +1,28 @@
 import { EXTERNAL_KEY_CONTA } from '../config'
-import type { ArquivoBuscaResultado, Paginacao } from '../types'
+import type { ItemPasta } from '../types'
 
-export interface BuscarArquivosOpcoes {
+export interface ListarItensOpcoes {
   externalKeyPasta?: string | null
-  pagina?: number
-  tamanhoPagina?: number
   signal?: AbortSignal
 }
 
 /**
- * Chama o endpoint de busca recursiva da API.
- * O usuario corrente e identificado pelo header X-Auth-Key (auth simulada).
+ * Carrega o conteudo de uma pasta (filhos diretos + envios daquele nivel).
+ * O termo digitado pelo usuario nao e enviado: a filtragem acontece no navegador.
  */
-export async function buscarArquivos(
-  termo: string,
+export async function listarItens(
   authKey: string,
-  opcoes: BuscarArquivosOpcoes = {},
-): Promise<Paginacao<ArquivoBuscaResultado>> {
-  const { externalKeyPasta, pagina = 1, tamanhoPagina = 50, signal } = opcoes
+  opcoes: ListarItensOpcoes = {},
+): Promise<ItemPasta[]> {
+  const { externalKeyPasta, signal } = opcoes
 
   const params = new URLSearchParams()
-  params.set('termo', termo)
-  params.set('pagina', String(pagina))
-  params.set('tamanhoPagina', String(tamanhoPagina))
   if (externalKeyPasta) {
     params.set('externalKeyPasta', externalKeyPasta)
   }
 
-  const url = `/api/envio/conta/${EXTERNAL_KEY_CONTA}/buscar?${params.toString()}`
+  const queryString = params.toString()
+  const url = `/api/envio/conta/${EXTERNAL_KEY_CONTA}/itens${queryString ? `?${queryString}` : ''}`
 
   const response = await fetch(url, {
     method: 'GET',
@@ -38,8 +33,8 @@ export async function buscarArquivos(
   })
 
   if (!response.ok) {
-    throw new Error(`Falha na busca (HTTP ${response.status})`)
+    throw new Error(`Falha ao carregar a pasta (HTTP ${response.status})`)
   }
 
-  return (await response.json()) as Paginacao<ArquivoBuscaResultado>
+  return (await response.json()) as ItemPasta[]
 }

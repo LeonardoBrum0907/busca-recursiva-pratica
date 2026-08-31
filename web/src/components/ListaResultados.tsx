@@ -1,11 +1,10 @@
-import type { ArquivoBuscaResultado } from '../types'
+import type { ItemPasta } from '../types'
 
 interface Props {
-  itens: ArquivoBuscaResultado[]
+  itens: ItemPasta[]
   termo: string
-  navegando: boolean
-  onPastaClick?: (pasta: ArquivoBuscaResultado) => void
-  onEnvioClick?: (envio: ArquivoBuscaResultado) => void
+  onPastaClick?: (pasta: ItemPasta) => void
+  onEnvioClick?: (envio: ItemPasta) => void
 }
 
 function formatarData(data?: string | null): string {
@@ -14,27 +13,15 @@ function formatarData(data?: string | null): string {
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR')
 }
 
-export function ListaResultados({
-  itens,
-  termo,
-  navegando,
-  onPastaClick,
-  onEnvioClick,
-}: Props) {
+export function ListaResultados({ itens, termo, onPastaClick, onEnvioClick }: Props) {
   const termoLimpo = termo.trim()
-
-  if (termoLimpo.length > 0 && termoLimpo.length < 2) {
-    return <p className="dica">Digite ao menos 2 caracteres para buscar.</p>
-  }
 
   if (itens.length === 0) {
     return (
       <p className="dica">
         {termoLimpo.length === 0
-          ? navegando
-            ? 'Esta pasta esta vazia.'
-            : 'Nenhuma pasta disponivel para este usuario.'
-          : `Nenhum resultado para "${termo}".`}
+          ? 'Esta pasta esta vazia.'
+          : `Nenhum item deste nivel corresponde a "${termo}".`}
       </p>
     )
   }
@@ -87,11 +74,6 @@ export function ListaResultados({
                   {item.statusEnvio && (
                     <span className="badge badge-status">{item.statusEnvio}</span>
                   )}
-                </div>
-              )}
-              {termoLimpo.length > 0 && (
-                <div className="resultado-caminho" title={item.caminho}>
-                  {item.caminho}
                 </div>
               )}
               {item.tipo === 'Envio' && (

@@ -3,7 +3,6 @@ using BuscaApi.Domain.Exceptions;
 using BuscaApi.Domain.Interfaces;
 using BuscaApi.Domain.Interfaces.Repository;
 using BuscaApi.Domain.Interfaces.Services;
-using BuscaApi.Domain.Models.Application;
 
 namespace BuscaApi.Application.Services;
 
@@ -14,20 +13,17 @@ public class EnvioService(
     IEnvioRepository envioRepository,
     IAuthenticatedUser authenticatedUser) : IEnvioService
 {
-    public async Task<Paginacao<ArquivoBuscaResultado>> BuscarArquivosAsync(BuscaArquivosQuery query)
+    public async Task<IReadOnlyList<ItemPasta>> ListarItensAsync(Guid externalKeyConta, Guid? externalKeyPasta)
     {
-        var conta = await contaRepository.GetByExternalKeyAsync(query.ExternalKeyConta)
+        var conta = await contaRepository.GetByExternalKeyAsync(externalKeyConta)
                     ?? throw new DataNotFoundException("Conta não encontrada");
 
-        // Termo vazio = navegacao: filhos diretos da pasta atual + envios nela.
-        // Termo preenchido = busca textual apenas no nivel atual (nao desce a arvore).
-
-        int? idPastaRaiz = null;
-        if (query.ExternalKeyPasta.HasValue)
+        int? idPasta = null;
+        if (externalKeyPasta.HasValue)
         {
-            var pasta = await pastaRepository.GetByExternalKeyAsync(query.ExternalKeyPasta.Value)
+            var pasta = await pastaRepository.GetByExternalKeyAsync(externalKeyPasta.Value)
                         ?? throw new DataNotFoundException("Pasta não encontrada");
-            idPastaRaiz = pasta.IdPasta;
+            idPasta = pasta.IdPasta;
         }
 
         int? idUsuarioFiltro = null;
@@ -43,21 +39,6 @@ public class EnvioService(
             idUsuarioFiltro = usuario.IdUsuario;
         }
 
-        var (itens, total) = await envioRepository.BuscarArquivosAsync(
-            conta.IdConta,
-            idPastaRaiz,
-            query.Termo.Trim(),
-            query.IncluirPastas,
-            Math.Max(1, query.Pagina),
-            Math.Clamp(query.TamanhoPagina, 1, 200),
-            idUsuarioFiltro);
-
-        return new Paginacao<ArquivoBuscaResultado>
-        {
-            PaginaSelecionada = query.Pagina,
-            TamanhoPagina = query.TamanhoPagina,
-            Total = total,
-            Dados = itens.ToList()
-        };
+        return await envioRepository.ListarItensAsync(conta.IdConta, idPasta, idUsuarioFiltro);
     }
 }

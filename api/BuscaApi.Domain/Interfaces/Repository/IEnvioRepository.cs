@@ -4,12 +4,12 @@ namespace BuscaApi.Domain.Interfaces.Repository;
 
 public interface IEnvioRepository
 {
-    Task<(IReadOnlyList<ArquivoBuscaResultado> Itens, int Total)> BuscarArquivosAsync(
+    /// <summary>
+    /// Devolve os filhos diretos da pasta informada (ou as pastas-raiz da conta) mais
+    /// os envios que estao nela. Nao recebe termo de busca.
+    /// </summary>
+    Task<IReadOnlyList<ItemPasta>> ListarItensAsync(
         int idConta,
-        int? idPastaRaiz,
-        string termo,
-        bool incluirPastas,
-        int pagina,
-        int tamanhoPagina,
+        int? idPasta,
         int? idUsuarioFiltro = null);
 }

@@ -25,7 +25,6 @@
   <ItemGroup>
     <ProjectReference Include="..\BuscaApi.Application\BuscaApi.Application.csproj" />
     <ProjectReference Include="..\BuscaApi.Domain\BuscaApi.Domain.csproj" />
-    <ProjectReference Include="..\BuscaApi.Infrastructure\BuscaApi.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

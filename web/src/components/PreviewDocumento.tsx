@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { ArquivoBuscaResultado } from '../types'
+import type { ItemPasta } from '../types'
 import { URL_PDF_DEMO, urlPdfEnvio } from '../config'
 
 interface Props {
-  envio: ArquivoBuscaResultado
+  envio: ItemPasta
   onFechar: () => void
 }
 
@@ -74,9 +74,6 @@ export function PreviewDocumento({ envio, onFechar }: Props) {
             <h2 id="preview-titulo" className="preview-titulo">
               {envio.nome}
             </h2>
-            <p className="preview-caminho" title={envio.caminho}>
-              {envio.caminho}
-            </p>
             <div className="preview-meta">
               {envio.statusEnvio && (
                 <span className="badge badge-status">{envio.statusEnvio}</span>

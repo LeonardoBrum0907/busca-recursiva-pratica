@@ -3,9 +3,6 @@
 -- Espelha o dominio do ArecoSign: Conta > Pasta (hierarquica) > Envio
 -- ============================================================
 
--- Habilita similaridade textual (necessario para ILIKE performante)
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
 CREATE TABLE conta (
     idconta     SERIAL PRIMARY KEY,
     externalkey UUID NOT NULL UNIQUE,
@@ -54,22 +51,3 @@ CREATE TABLE rlcusuariopasta (
     idpasta   INT NOT NULL REFERENCES pasta (idpasta),
     PRIMARY KEY (idusuario, idpasta)
 );
-
--- ============================================================
--- Indices (Task 10 do plano)
--- ============================================================
-
--- Indices trigram para acelerar ILIKE '%termo%'
-CREATE INDEX IF NOT EXISTS ix_envio_assunto_trgm
-    ON envio USING gin (assunto gin_trgm_ops);
-
-CREATE INDEX IF NOT EXISTS ix_pasta_nomepasta_trgm
-    ON pasta USING gin (nomepasta gin_trgm_ops);
-
--- Acelera a recursao pai -> filhos
-CREATE INDEX IF NOT EXISTS ix_pasta_idpastapai
-    ON pasta (idpastapai);
-
--- Acelera a etapa "envios de uma subarvore"
-CREATE INDEX IF NOT EXISTS ix_envio_idpasta_status
-    ON envio (idpasta, statusregistro);
