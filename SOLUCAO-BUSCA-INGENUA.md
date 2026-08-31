@@ -46,14 +46,21 @@ API filtrar em memória — mesmo quando o usuário só quer os 3 itens da pasta
 
 ## Como comparar
 
-1. Esta branch (`main`): http://localhost:5173 — busque `contrato` na raiz.  
-2. Branch `busca-recursiva` (Opção A): a mesma busca lista os documentos em qualquer profundidade.
+1. Esta branch (`main`), em container: http://localhost:5173 — busque `contrato` na raiz.  
+2. Branch `busca-recursiva` (Opção A): http://localhost:5174 — a mesma busca lista os documentos em qualquer profundidade.
+
+Os dois composes isolam só API/frontend e **reusam o mesmo Postgres** (volume `busca-recursiva-pratica_pgdata`):
 
 ```bash
+# nesta branch (ingênua) → web :5173 / API :5080
+docker compose up --build -d
+
+# na branch busca-recursiva → web :5174 / API :5081 (mesmo banco em :15432)
+git checkout busca-recursiva
 docker compose up --build -d
 ```
 
-O banco compartilhado (`pgdata`) já pode ter os 10.000 envios gerados. Se não:
+O volume Docker `busca-recursiva-pratica_pgdata` já pode ter os 10.000 envios. Se não:
 
 ```bash
 cd scripts && npm install && node gerar-volume.mjs

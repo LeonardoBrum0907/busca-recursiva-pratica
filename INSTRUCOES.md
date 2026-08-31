@@ -38,19 +38,25 @@ Na raiz do projeto:
 docker compose up --build -d
 ```
 
-Sobe três serviços:
+Sobe a API e o frontend **ingênuos** desta branch. O PostgreSQL é **único e compartilhado**
+com a branch `busca-recursiva` (mesmo volume `busca-recursiva-pratica_pgdata`):
 
-- **web** — http://localhost:5173
-- **API / Swagger** — http://localhost:5080/swagger
-- **PostgreSQL** — `localhost:15432` (schema + seed na primeira subida)
+- **web ingênua** — http://localhost:5173
+- **API / Swagger ingênua** — http://localhost:5080/swagger
+- **PostgreSQL (compartilhado)** — `localhost:15432`
+
+Na branch `busca-recursiva`, o mesmo comando sobe a API/frontend recursivos em
+`5174` / `5081`, sem criar outro banco. Os dois frontends podem ficar no ar juntos.
 
 Os PDFs gerados em `web/public/documentos/volume/` são montados no container do frontend.
 
 Para ver logs: `docker compose logs -f`
 
-Para parar: `docker compose down`
+Para parar só esta branch (mantém o banco e o outro stack): `docker compose stop api-ingenua web-ingenua`
 
-> Para recriar o banco do zero (reaplicar schema + seed): `docker compose down -v && docker compose up --build -d`
+Para parar tudo, inclusive o Postgres compartilhado: `docker compose down`
+
+> Não use `down -v` se quiser preservar os dados: isso apaga o volume compartilhado.
 
 ---
 
@@ -71,6 +77,8 @@ docker compose logs postgres | tail -n 20
 ```
 
 > Para recriar do zero (reaplicar schema + seed): `docker compose down -v && docker compose up -d`
+>
+> Isso apaga o volume compartilhado com a busca recursiva. Use só se quiser zerar os dados.
 
 ---
 

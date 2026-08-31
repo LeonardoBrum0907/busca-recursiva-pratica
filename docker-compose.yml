@@ -1,3 +1,11 @@
+name: busca-pratica
+
+networks:
+  app:
+    name: busca_ingenua
+  db:
+    name: busca_shared
+
 services:
   postgres:
     image: postgres:16
@@ -16,33 +24,44 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - db
 
-  api:
+  api-ingenua:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: busca_api
+    container_name: busca_api_ingenua
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
+      Busca__Modo: ingenua
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=busca;Username=busca;Password=busca
     ports:
       - "5080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      app:
+        aliases:
+          - api
+      db: {}
 
-  web:
+  web-ingenua:
     build:
       context: ./web
       dockerfile: Dockerfile
-    container_name: busca_web
+    container_name: busca_web_ingenua
     ports:
       - "5173:80"
     volumes:
       - ./web/public/documentos/volume:/usr/share/nginx/html/documentos/volume:ro
     depends_on:
-      - api
+      - api-ingenua
+    networks:
+      - app
 
 volumes:
   pgdata:
+    name: busca-recursiva-pratica_pgdata
