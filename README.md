@@ -48,17 +48,17 @@ RH
 ### 1. Banco de dados (PostgreSQL via Docker)
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.db.yml up -d
+docker compose up --build -d
 ```
 
-Sobe a API/frontend ingênuos (`5080` / `5173`) e o Postgres compartilhado em `15432`.
-Na branch `busca-recursiva`, o mesmo comando sobe a API/frontend recursivos (`5081` / `5174`)
-reusando o mesmo banco — os dois stacks podem ficar no ar juntos.
+Sobe o Postgres compartilhado em `15432` e a API/frontend ingênuos (`5080` / `5173`).
+Na branch `busca-recursiva`, o mesmo par de comandos sobe a API/frontend recursivos
+(`5081` / `5174`) no mesmo banco — os dois stacks podem ficar no ar juntos.
 
-O PostgreSQL fica na porta `15432` (mapeada para `5432` no container) e executa automaticamente `db/01_schema.sql`
-e `db/02_seed.sql`.
+O PostgreSQL executa automaticamente `db/01_schema.sql` e `db/02_seed.sql` na primeira subida.
 
-> Para recriar do zero (reaplicar schema/seed): `docker compose down -v && docker compose up -d`.
+> Para recriar o banco do zero: `docker compose -f docker-compose.db.yml down -v && docker compose -f docker-compose.db.yml up -d`.
 
 ### 2. API (.NET 10)
 

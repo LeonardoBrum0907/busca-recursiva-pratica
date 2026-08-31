@@ -49,9 +49,12 @@ API filtrar em memória — mesmo quando o usuário só quer os 3 itens da pasta
 1. Esta branch (`main`), em container: http://localhost:5173 — busque `contrato` na raiz.  
 2. Branch `busca-recursiva` (Opção A): http://localhost:5174 — a mesma busca lista os documentos em qualquer profundidade.
 
-Os dois composes isolam só API/frontend e **reusam o mesmo Postgres** (volume `busca-recursiva-pratica_pgdata`):
+Os composes isolam só API/frontend e **reusam o mesmo volume** (`busca-recursiva-pratica_pgdata`).
+Há um único Postgres: dois no mesmo volume se corromperiam.
 
 ```bash
+docker compose -f docker-compose.db.yml up -d
+
 # nesta branch (ingênua) → web :5173 / API :5080
 docker compose up --build -d
 

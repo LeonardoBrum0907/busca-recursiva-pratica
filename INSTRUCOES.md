@@ -35,35 +35,37 @@ gh --version
 Na raiz do projeto:
 
 ```bash
+docker compose -f docker-compose.db.yml up -d
 docker compose up --build -d
 ```
 
-Sobe a API e o frontend **ingênuos** desta branch. O PostgreSQL é **único e compartilhado**
-com a branch `busca-recursiva` (mesmo volume `busca-recursiva-pratica_pgdata`):
+O banco é **único** (volume `busca-recursiva-pratica_pgdata`). Separar dois Postgres no
+mesmo volume não é seguro: os dois escreveriam nos mesmos arquivos. Esta branch sobe
+só a API/frontend **ingênuos**; a `busca-recursiva` sobe os recursivos.
 
 - **web ingênua** — http://localhost:5173
 - **API / Swagger ingênua** — http://localhost:5080/swagger
 - **PostgreSQL (compartilhado)** — `localhost:15432`
 
-Na branch `busca-recursiva`, o mesmo comando sobe a API/frontend recursivos em
-`5174` / `5081`, sem criar outro banco. Os dois frontends podem ficar no ar juntos.
+Na branch `busca-recursiva`, o mesmo par de comandos sobe a API/frontend em
+`5174` / `5081`, sem outro banco. Os dois stacks podem ficar no ar juntos.
 
 Os PDFs gerados em `web/public/documentos/volume/` são montados no container do frontend.
 
 Para ver logs: `docker compose logs -f`
 
-Para parar só esta branch (mantém o banco e o outro stack): `docker compose stop api-ingenua web-ingenua`
+Para parar só esta branch (mantém o banco e o outro stack): `docker compose down`
 
-Para parar tudo, inclusive o Postgres compartilhado: `docker compose down`
+Para parar o Postgres compartilhado: `docker compose -f docker-compose.db.yml down`
 
-> Não use `down -v` se quiser preservar os dados: isso apaga o volume compartilhado.
+> Não use `down -v` no arquivo do banco se quiser preservar os dados.
 
 ---
 
 ## 1b. Subir só o banco (desenvolvimento local)
 
 ```bash
-docker compose up -d postgres
+docker compose -f docker-compose.db.yml up -d
 ```
 
 Isso cria o container `busca_postgres` na porta `15432` e executa automaticamente
@@ -72,11 +74,11 @@ Isso cria o container `busca_postgres` na porta `15432` e executa automaticament
 Conferir se subiu:
 
 ```bash
-docker compose ps
-docker compose logs postgres | tail -n 20
+docker compose -f docker-compose.db.yml ps
+docker compose -f docker-compose.db.yml logs postgres | tail -n 20
 ```
 
-> Para recriar do zero (reaplicar schema + seed): `docker compose down -v && docker compose up -d`
+> Para recriar do zero (reaplicar schema + seed): `docker compose -f docker-compose.db.yml down -v && docker compose -f docker-compose.db.yml up -d`
 >
 > Isso apaga o volume compartilhado com a busca recursiva. Use só se quiser zerar os dados.
 
@@ -173,7 +175,7 @@ Para reproduzir a lentidão de busca e navegação que o cliente enfrenta com mi
 de arquivos, use o gerador de volume. Ele insere ~10.000 envios no PostgreSQL e
 replica o `teste.pdf` para cada um em `web/public/documentos/volume/`.
 
-Pré-requisito: banco rodando (`docker compose up -d`) com o seed pequeno já aplicado.
+Pré-requisito: banco rodando (`docker compose -f docker-compose.db.yml up -d`) com o seed pequeno já aplicado.
 
 ```bash
 cd scripts
@@ -209,11 +211,11 @@ Após gerar, recarregue o app e teste:
 
 ## Solução de problemas
 
-- **API não conecta ao banco:** confirme `docker compose ps` (container `healthy`) e
+- **API não conecta ao banco:** confirme `docker compose -f docker-compose.db.yml ps` (container `healthy`) e
   a connection string em `api/BuscaApi/appsettings.json`
-  (`Host=localhost;Port=5432;Database=busca;Username=busca;Password=busca`).
-- **Porta 5432 ocupada:** ajuste o mapeamento em `docker-compose.yml` (ex.: `"5433:5432"`)
-  e a connection string para `Port=5433`.
+  (`Host=localhost;Port=15432;Database=busca;Username=busca;Password=busca`).
+- **Porta 15432 ocupada:** ajuste o mapeamento em `docker-compose.db.yml` (ex.: `"15433:5432"`)
+  e a connection string para `Port=15433`.
 - **CORS no frontend:** o dev server usa proxy (`/api`), então não deve ocorrer. Se
   rodar o front em outra porta, ajuste `WithOrigins(...)` em `api/BuscaApi/Program.cs`.
 - **`gh` não autenticado:** rode `gh auth login` e repita o passo 5.

@@ -1,54 +1,23 @@
-name: busca-pratica
-
-networks:
-  app:
-    name: busca_ingenua
-  db:
-    name: busca_shared
+name: busca-ingenua
 
 services:
-  postgres:
-    image: postgres:16
-    container_name: busca_postgres
-    environment:
-      POSTGRES_USER: busca
-      POSTGRES_PASSWORD: busca
-      POSTGRES_DB: busca
-    ports:
-      - "15432:5432"
-    volumes:
-      - ./db:/docker-entrypoint-initdb.d:ro
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U busca -d busca"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - db
-
-  api-ingenua:
+  api:
     build:
       context: ./api
       dockerfile: Dockerfile
     container_name: busca_api_ingenua
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       Busca__Modo: ingenua
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=busca;Username=busca;Password=busca
+      ConnectionStrings__Postgres: Host=host.docker.internal;Port=15432;Database=busca;Username=busca;Password=busca
     ports:
       - "5080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      app:
-        aliases:
-          - api
-      db: {}
+    restart: unless-stopped
 
-  web-ingenua:
+  web:
     build:
       context: ./web
       dockerfile: Dockerfile
@@ -58,10 +27,4 @@ services:
     volumes:
       - ./web/public/documentos/volume:/usr/share/nginx/html/documentos/volume:ro
     depends_on:
-      - api-ingenua
-    networks:
-      - app
-
-volumes:
-  pgdata:
-    name: busca-recursiva-pratica_pgdata
+      - api
