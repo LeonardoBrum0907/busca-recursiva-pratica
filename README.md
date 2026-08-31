@@ -1,9 +1,11 @@
-# Busca Recursiva - Projeto de Prática
+# Busca por nível — versão ingênua (prática)
 
-Versão simplificada (para estudo) da **busca textual recursiva** de pastas e envios,
-inspirada no ArecoSign. O objetivo é praticar a estratégia da *Opção A*: um endpoint
-dedicado que executa `WITH RECURSIVE` no PostgreSQL, respeitando permissões e
-devolvendo o caminho completo de cada item.
+Versão simplificada para **comparar** com a Opção A da busca recursiva do ArecoSign.
+Nesta branch a API **carrega a árvore inteira em memória** e a busca textual vale
+**somente no nível atual** (não percorre subpastas).
+
+A estratégia boa (`WITH RECURSIVE` + `ILIKE` + `pg_trgm`) está na branch
+`busca-recursiva`. O detalhe desta versão está em [SOLUCAO-BUSCA-INGENUA.md](SOLUCAO-BUSCA-INGENUA.md).
 
 ## Stack
 
@@ -12,7 +14,7 @@ devolvendo o caminho completo de cada item.
 | Frontend | React + TypeScript + Vite |
 | Backend | .NET 10, Clean Architecture (Domain / Application / Infrastructure / API) |
 | Acesso a dados | Dapper + Npgsql |
-| Banco | PostgreSQL 16 (`WITH RECURSIVE`, `ILIKE`, `pg_trgm`) |
+| Banco | PostgreSQL 16 |
 | Testes | xUnit + Moq |
 
 ## Domínio
@@ -91,24 +93,26 @@ GET /api/envio/conta/{externalKeyConta}/buscar
 
 Quando `termo` está **vazio**, o endpoint funciona em modo *navegação*: devolve os
 **filhos diretos** da pasta atual (pastas-raiz na conta, ou subpastas + envios
-dentro da pasta aberta). Com `termo` preenchido, faz a busca textual recursiva.
+dentro da pasta aberta). Com `termo` preenchido, filtra **apenas esse mesmo nível**
+(não desce a árvore). A árvore completa da conta já foi carregada em memória.
 
 O usuário corrente é simulado pelo header **`X-Auth-Key`** (GUID do usuário).
 No frontend há um seletor de usuário:
 
-- **Ana (admin)** — vê todas as pastas/envios da conta.
-- **Maria (Financeiro)** — só vê o ramo `Financeiro` (graças ao filtro
-  `rlcusuariopasta` aplicado dentro da CTE recursiva).
+- **Ana (admin)** — vê todas as pastas-raiz da conta.
+- **Maria (Financeiro)** — só vê o ramo `Financeiro` (vínculo em `rlcusuariopasta`,
+  expandido em memória para as subpastas).
 
 Ao abrir o app (campo de busca vazio):
 
 - Como **Ana (admin)**, aparecem as pastas-raiz da conta.
 - Como **Maria**, aparece apenas o ramo `Financeiro` (e subpastas ao navegar).
 
-Experimente buscar por `contrato`:
+Experimente buscar por `contrato` **na raiz**:
 
-- Como **Ana**, aparecem contratos de `ACME`, `Initech`, `Contratos` e `Admissoes`.
-- Como **Maria**, aparecem apenas os de `Financeiro > Contratos`.
+- Como **Ana** ou **Maria**, o resultado tende a ser **vazio** — nenhuma pasta-raiz
+  se chama "contrato". Entre em `Financeiro > Contratos` (ou `Clientes > 2026 > ACME`)
+  e busque de novo para ver os envios daquele nível.
 
 ## Testes
 
@@ -126,7 +130,7 @@ busca-recursiva-pratica/
   api/                 # solução .NET 10
     BuscaApi.Domain/        # entidades, DTOs, interfaces
     BuscaApi.Application/   # EnvioService (regra de negócio + permissões)
-    BuscaApi.Infrastructure/# Dapper + query WITH RECURSIVE
+    BuscaApi.Infrastructure/# Dapper + carga da arvore em memoria (filtro por nivel)
     BuscaApi/               # Web API (controller, Swagger, auth simulada)
     BuscaApi.Testes/        # xUnit + Moq
   web/                 # frontend Vite + React + TS
@@ -134,6 +138,5 @@ busca-recursiva-pratica/
 
 ## Origem
 
-Baseado nos documentos de análise e plano de implementação da busca recursiva do
-ArecoSign (estratégia "Opção A": `WITH RECURSIVE` + `ILIKE` + `pg_trgm`,
-com filtro de permissões espelhando `rlcusuariopasta`).
+Contraste da Opção A do ArecoSign (`busca-recursiva`): aqui a busca é o caminho
+ingênuo (árvore em memória + um nível por vez). Ver [SOLUCAO-BUSCA-INGENUA.md](SOLUCAO-BUSCA-INGENUA.md).

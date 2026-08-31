@@ -5,6 +5,7 @@ import { buscarArquivos } from './services/envioService'
 import type { ArquivoBuscaResultado, PastaNavegacao } from './types'
 import { ListaResultados } from './components/ListaResultados'
 import { NavegacaoPastas } from './components/NavegacaoPastas'
+import { PreviewDocumento } from './components/PreviewDocumento'
 import './App.css'
 
 const MIN_CARACTERES = 2
@@ -18,6 +19,7 @@ export default function App() {
   const [total, setTotal] = useState(0)
   const [buscando, setBuscando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [envioPreview, setEnvioPreview] = useState<ArquivoBuscaResultado | null>(null)
 
   const termoDebounced = useDebounce(termo, DEBOUNCE_MS)
   const abortRef = useRef<AbortController | null>(null)
@@ -98,10 +100,10 @@ export default function App() {
   return (
     <div className="container">
       <header>
-        <h1>Pastas e busca recursiva</h1>
+        <h1>Pastas e busca por nivel</h1>
         <p className="subtitulo">
-          Navegue pelas pastas e envios permitidos ou use a busca textual recursiva
-          respeitando as permissoes.
+          Navegue pelas pastas permitidas. A busca filtra apenas o nivel atual
+          (nao percorre subpastas) e a arvore inteira e carregada em memoria.
         </p>
       </header>
 
@@ -130,7 +132,7 @@ export default function App() {
           </span>
           <input
             type="text"
-            placeholder="Pesquisar pastas e envios..."
+            placeholder="Pesquisar neste nivel..."
             value={termo}
             onChange={(e) => setTermo(e.target.value)}
             autoFocus
@@ -140,9 +142,14 @@ export default function App() {
         {!buscando && !erro && !(termo.trim().length > 0 && termo.trim().length < MIN_CARACTERES) && (
           <p className="contador">{textoContador()}</p>
         )}
+        {!navegando && termo.trim().length >= MIN_CARACTERES && (
+          <p className="dica">
+            A busca vale so para esta pasta. Entre em uma subpasta para procurar mais fundo.
+          </p>
+        )}
       </section>
 
-      {navegando && <NavegacaoPastas pilha={pilhaPastas} onNavegar={navegarPara} />}
+      <NavegacaoPastas pilha={pilhaPastas} onNavegar={navegarPara} />
 
       {erro && <p className="erro">{erro}</p>}
 
@@ -151,7 +158,12 @@ export default function App() {
         termo={termo}
         navegando={navegando}
         onPastaClick={navegando ? entrarNaPasta : undefined}
+        onEnvioClick={setEnvioPreview}
       />
+
+      {envioPreview && (
+        <PreviewDocumento envio={envioPreview} onFechar={() => setEnvioPreview(null)} />
+      )}
     </div>
   )
 }

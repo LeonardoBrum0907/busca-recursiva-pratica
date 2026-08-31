@@ -5,6 +5,7 @@ interface Props {
   termo: string
   navegando: boolean
   onPastaClick?: (pasta: ArquivoBuscaResultado) => void
+  onEnvioClick?: (envio: ArquivoBuscaResultado) => void
 }
 
 function formatarData(data?: string | null): string {
@@ -13,7 +14,13 @@ function formatarData(data?: string | null): string {
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR')
 }
 
-export function ListaResultados({ itens, termo, navegando, onPastaClick }: Props) {
+export function ListaResultados({
+  itens,
+  termo,
+  navegando,
+  onPastaClick,
+  onEnvioClick,
+}: Props) {
   const termoLimpo = termo.trim()
 
   if (termoLimpo.length > 0 && termoLimpo.length < 2) {
@@ -36,11 +43,13 @@ export function ListaResultados({ itens, termo, navegando, onPastaClick }: Props
     <ul className="resultados">
       {itens.map((item) => {
         const ehPastaClicavel = item.tipo === 'Pasta' && onPastaClick
+        const ehEnvioClicavel = item.tipo === 'Envio' && onEnvioClick
+        const ehClicavel = ehPastaClicavel || ehEnvioClicavel
 
         return (
           <li
             key={`${item.tipo}-${item.externalKey}`}
-            className={`resultado${ehPastaClicavel ? ' resultado-clicavel' : ''}`}
+            className={`resultado${ehClicavel ? ' resultado-clicavel' : ''}`}
           >
             <span className="icone" aria-hidden>
               {item.tipo === 'Pasta' ? '📁' : '📄'}
@@ -55,6 +64,20 @@ export function ListaResultados({ itens, termo, navegando, onPastaClick }: Props
                   <div className="resultado-linha1">
                     <span className="resultado-nome">{item.nome}</span>
                     <span className={`badge badge-${item.tipo.toLowerCase()}`}>{item.tipo}</span>
+                  </div>
+                </button>
+              ) : ehEnvioClicavel ? (
+                <button
+                  type="button"
+                  className="resultado-item-btn"
+                  onClick={() => onEnvioClick(item)}
+                >
+                  <div className="resultado-linha1">
+                    <span className="resultado-nome">{item.nome}</span>
+                    <span className={`badge badge-${item.tipo.toLowerCase()}`}>{item.tipo}</span>
+                    {item.statusEnvio && (
+                      <span className="badge badge-status">{item.statusEnvio}</span>
+                    )}
                   </div>
                 </button>
               ) : (
@@ -76,6 +99,7 @@ export function ListaResultados({ itens, termo, navegando, onPastaClick }: Props
                   {item.nomeDestinatarios && <span>👥 {item.nomeDestinatarios}</span>}
                   <span>Criado: {formatarData(item.dataCriacao)}</span>
                   {item.dataExpiracao && <span>Expira: {formatarData(item.dataExpiracao)}</span>}
+                  {ehEnvioClicavel && <span className="resultado-dica-clique">Clique para visualizar</span>}
                 </div>
               )}
             </div>

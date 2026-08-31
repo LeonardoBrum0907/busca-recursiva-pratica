@@ -1,6 +1,6 @@
 # ---- .NET ----
-bin/
-obj/
+**/bin/
+**/obj/
 *.user
 *.suo
 .vs/
@@ -33,3 +33,6 @@ Thumbs.db
 
 # ---- Docker / Postgres ----
 pgdata/
+
+# ---- Volume simulado (gerado por scripts/gerar-volume.mjs) ----
+web/public/documentos/volume/

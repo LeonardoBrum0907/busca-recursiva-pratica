@@ -14,7 +14,7 @@ cd "c:/Users/Leonardo.Brum/projetos/busca-recursiva-pratica"
 
 ## Pré-requisitos
 
-- .NET SDK 10
+- .NET SDK 9
 - Node.js 18+ (com npm)
 - Docker Desktop (para o PostgreSQL)
 - Git e GitHub CLI (`gh`) autenticado (`gh auth login`)
@@ -30,10 +30,34 @@ gh --version
 
 ---
 
-## 1. Subir o banco (PostgreSQL via Docker)
+## 1. Subir o ambiente em containers (recomendado)
+
+Na raiz do projeto:
 
 ```bash
-docker compose up -d
+docker compose up --build -d
+```
+
+Sobe três serviços:
+
+- **web** — http://localhost:5173
+- **API / Swagger** — http://localhost:5080/swagger
+- **PostgreSQL** — `localhost:15432` (schema + seed na primeira subida)
+
+Os PDFs gerados em `web/public/documentos/volume/` são montados no container do frontend.
+
+Para ver logs: `docker compose logs -f`
+
+Para parar: `docker compose down`
+
+> Para recriar o banco do zero (reaplicar schema + seed): `docker compose down -v && docker compose up --build -d`
+
+---
+
+## 1b. Subir só o banco (desenvolvimento local)
+
+```bash
+docker compose up -d postgres
 ```
 
 Isso cria o container `busca_postgres` na porta `15432` e executa automaticamente
@@ -50,7 +74,7 @@ docker compose logs postgres | tail -n 20
 
 ---
 
-## 2. API (.NET 10) — restore, testes e build
+## 2. API (.NET 9) — restore, testes e build
 
 ```bash
 cd api
@@ -94,19 +118,20 @@ npm run dev
 
 - App: http://localhost:5173 (faz proxy de `/api` para a API em :5080)
 
-No app: troque o usuário no seletor e digite `contrato` para ver a diferença de
-permissões em ação.
+No app: na raiz, digite `contrato` — a busca **não** encontra documentos nas
+subpastas. Navegue até `Financeiro > Contratos` e busque de novo.
 
 ---
 
 ## 4. Checklist de validação
 
-- [ ] Buscar `contrato` como **Ana** retorna itens de ACME, Initech, Contratos e Admissões.
-- [ ] Buscar `contrato` como **Maria** retorna apenas os de `Financeiro > Contratos`.
+- [ ] Buscar `contrato` na **raiz** como Ana retorna vazio (ou só pastas-raiz cujo nome case).
+- [ ] Navegar até `Financeiro > Contratos` e buscar `contrato` lista os envios daquela pasta.
+- [ ] Como **Maria**, a raiz mostra só Financeiro; `Clientes` não aparece.
 - [ ] Cada resultado mostra o **caminho** (ex.: `Clientes > 2026 > ACME`).
 - [ ] Digitar 1 caractere não dispara busca (mínimo de 2).
 - [ ] Digitação rápida dispara **uma** chamada (debounce 300 ms — ver aba Network).
-- [ ] O spinner aparece durante a busca.
+- [ ] O spinner aparece durante a busca (e a API carrega a árvore inteira a cada request).
 - [ ] `dotnet test BuscaApi.sln` verde.
 
 ---
@@ -118,7 +143,7 @@ cd "c:/Users/Leonardo.Brum/projetos/busca-recursiva-pratica"
 
 git init
 git add .
-git commit -m "feat: projeto de pratica de busca recursiva (API .NET 10 + React/Vite)"
+git commit -m "feat: projeto de pratica de busca recursiva (API .NET 9 + React/Vite)"
 
 # Confirme que o gh esta logado:
 gh auth status
@@ -134,13 +159,53 @@ Ao final, o `gh` mostra a URL do repositório criado.
 
 ---
 
+## 6. Simular volume do cliente (10.000 arquivos)
+
+Para reproduzir a lentidão de busca e navegação que o cliente enfrenta com milhares
+de arquivos, use o gerador de volume. Ele insere ~10.000 envios no PostgreSQL e
+replica o `teste.pdf` para cada um em `web/public/documentos/volume/`.
+
+Pré-requisito: banco rodando (`docker compose up -d`) com o seed pequeno já aplicado.
+
+```bash
+cd scripts
+npm install
+node gerar-volume.mjs
+```
+
+Ou, a partir do frontend:
+
+```bash
+cd web
+npm run gerar-volume
+```
+
+Opções:
+
+```bash
+node gerar-volume.mjs --quantidade 5000   # gera metade do volume
+node gerar-volume.mjs --limpar            # remove volume existente e regera
+```
+
+Após gerar, recarregue o app e teste:
+
+- Na **raiz**, busque `contrato` ou `Vol-` — quase nenhum resultado (a busca não desce).
+- Navegue em `Clientes > Volume > Setor_001 > Pasta_001` e busque `Vol-` para ver os envios **daquela pasta**.
+- Como **Maria**, só o ramo Financeiro aparece na navegação.
+- Abra um envio — o preview carrega o PDF (`/documentos/volume/{uuid}.pdf` ou `teste.pdf` no seed).
+
+> Os PDFs gerados ficam em `web/public/documentos/volume/` (ignorados pelo git).
+> Estimativa de disco: ~280 MB para 10.000 arquivos.
+
+---
+
 ## Solução de problemas
 
 - **API não conecta ao banco:** confirme `docker compose ps` (container `healthy`) e
   a connection string em `api/BuscaApi/appsettings.json`
-  (`Host=localhost;Port=15432;Database=busca;Username=busca;Password=busca`).
-- **Porta 15432 ocupada:** ajuste o mapeamento em `docker-compose.yml` (ex.: `"15433:5432"`)
-  e a connection string para `Port=15433`.
+  (`Host=localhost;Port=5432;Database=busca;Username=busca;Password=busca`).
+- **Porta 5432 ocupada:** ajuste o mapeamento em `docker-compose.yml` (ex.: `"5433:5432"`)
+  e a connection string para `Port=5433`.
 - **CORS no frontend:** o dev server usa proxy (`/api`), então não deve ocorrer. Se
   rodar o front em outra porta, ajuste `WithOrigins(...)` em `api/BuscaApi/Program.cs`.
 - **`gh` não autenticado:** rode `gh auth login` e repita o passo 5.

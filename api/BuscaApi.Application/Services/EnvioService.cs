@@ -20,7 +20,7 @@ public class EnvioService(
                     ?? throw new DataNotFoundException("Conta não encontrada");
 
         // Termo vazio = navegacao: filhos diretos da pasta atual + envios nela.
-        // Termo preenchido = busca textual recursiva em pastas e envios.
+        // Termo preenchido = busca textual apenas no nivel atual (nao desce a arvore).
 
         int? idPastaRaiz = null;
         if (query.ExternalKeyPasta.HasValue)

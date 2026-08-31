@@ -1,5 +1,6 @@
 using BuscaApi.Domain.Dtos;
 using BuscaApi.Domain.Interfaces.Repository;
+using BuscaApi.Infrastructure.Busca;
 using BuscaApi.Infrastructure.Data;
 using BuscaApi.Infrastructure.Repositorios.Queries;
 using Dapper;
@@ -14,37 +15,30 @@ public class EnvioRepository(DapperContext dapperContext) : IEnvioRepository
     {
         using var connection = dapperContext.CreateConnection();
 
-        var offset = (pagina - 1) * tamanhoPagina;
+        // Carrega a arvore inteira da conta em memoria (propositalmente caro).
+        var pastas = (await connection.QueryAsync<PastaCarregada>(
+            QueriesEnvio.QueryPastasDaConta, new { idConta })).ToList();
 
-        var rows = await connection.QueryAsync<dynamic>(QueriesEnvio.QueryBuscaArquivos, new
+        var envios = (await connection.QueryAsync<EnvioCarregado>(
+            QueriesEnvio.QueryEnviosDaConta, new { idConta })).ToList();
+
+        IReadOnlyList<int>? vinculos = null;
+        if (idUsuarioFiltro is int idUsuario)
         {
-            idConta,
+            vinculos = (await connection.QueryAsync<int>(
+                QueriesEnvio.QueryPastasVinculadas, new { idUsuario })).ToList();
+        }
+
+        var permitidas = FiltroNivelAtual.ResolverPastasPermitidas(pastas, vinculos);
+
+        return FiltroNivelAtual.FiltrarNivel(
+            pastas,
+            envios,
+            permitidas,
             idPastaRaiz,
             termo,
             incluirPastas,
-            idUsuarioFiltro,
-            tamanhoPagina,
-            offset
-        });
-
-        var list = rows.ToList();
-
-        // COUNT(*) OVER () retorna bigint -> long no Dapper dynamic.
-        var total = list.Count == 0 ? 0 : Convert.ToInt32(list[0].total);
-
-        var itens = list.Select(r => new ArquivoBuscaResultado
-        {
-            ExternalKey = (Guid)r.externalkey,
-            Tipo = (string)r.tipo,
-            Nome = (string)r.nome,
-            Caminho = (string)r.caminho,
-            ExternalKeyPastaPai = r.externalkeypastapai is null ? null : (Guid?)r.externalkeypastapai,
-            StatusEnvio = (string?)r.statusenvio,
-            DataCriacao = (DateTime?)r.datacriacao,
-            DataExpiracao = (DateTime?)r.dataexpiracao,
-            NomeDestinatarios = (string?)r.nomedestinatarios
-        }).ToList();
-
-        return (itens, total);
+            pagina,
+            tamanhoPagina);
     }
 }

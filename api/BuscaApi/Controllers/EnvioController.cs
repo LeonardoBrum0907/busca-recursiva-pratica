@@ -10,8 +10,8 @@ namespace BuscaApi.Controllers;
 public class EnvioController(IEnvioService envioService) : ControllerBase
 {
     /// <summary>
-    /// Busca recursiva de pastas e envios cujo nome casa com o termo, varrendo a
-    /// subarvore inteira a partir de uma pasta (ou da raiz da conta).
+    /// Lista ou filtra pastas e envios do nivel atual. A arvore da conta e carregada
+    /// em memoria; a busca textual nao percorre subpastas.
     /// </summary>
     [HttpGet("conta/{externalKeyConta:guid}/buscar")]
     public async Task<ActionResult<Paginacao<ArquivoBuscaResultado>>> BuscarArquivos(

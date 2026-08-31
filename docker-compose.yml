@@ -17,5 +17,32 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: busca_api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=busca;Username=busca;Password=busca
+    ports:
+      - "5080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: busca_web
+    ports:
+      - "5173:80"
+    volumes:
+      - ./web/public/documentos/volume:/usr/share/nginx/html/documentos/volume:ro
+    depends_on:
+      - api
+
 volumes:
   pgdata:
