@@ -6,6 +6,7 @@ using BuscaApi.Domain.Interfaces.Repository;
 using BuscaApi.Domain.Models.Application;
 using BuscaApi.Domain.Models.Data;
 using Moq;
+using Xunit;
 
 namespace BuscaApi.Testes;
 
