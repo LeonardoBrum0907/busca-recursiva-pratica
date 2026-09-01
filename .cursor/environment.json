@@ -1,0 +1,20 @@
+{
+  "name": "Busca Recursiva (.NET 9 + React/Vite + PostgreSQL 16)",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "export DOTNET_ROOT=$HOME/.dotnet; export PATH=$DOTNET_ROOT:$PATH; export DOTNET_CLI_TELEMETRY_OPTOUT=1; export DOTNET_NOLOGO=1; cd api && dotnet run --project BuscaApi"
+    },
+    {
+      "name": "web",
+      "command": "cd web && npm run dev"
+    }
+  ],
+  "ports": [
+    { "name": "api", "port": 5080 },
+    { "name": "web", "port": 5173 },
+    { "name": "postgres", "port": 5432 }
+  ]
+}
