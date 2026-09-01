@@ -1,34 +1,46 @@
 import { useEffect, useRef, useState } from 'react'
 import { USUARIOS_DEMO } from './config'
-import { listarItens } from './services/envioService'
+import { useDebounce } from './hooks/useDebounce'
+import { buscarArquivos, listarItens } from './services/envioService'
 import type { ItemPasta, PastaNavegacao } from './types'
 import { ListaResultados } from './components/ListaResultados'
 import { NavegacaoPastas } from './components/NavegacaoPastas'
 import { PreviewDocumento } from './components/PreviewDocumento'
 import './App.css'
 
+const MIN_CARACTERES = 2
+const DEBOUNCE_MS = 300
+
 export default function App() {
   const [authKey, setAuthKey] = useState(USUARIOS_DEMO[0].authKey)
   const [termo, setTermo] = useState('')
   const [pilhaPastas, setPilhaPastas] = useState<PastaNavegacao[]>([])
-  // Espelha o ItensUnificadosAux do ArecoSign: so o conteudo do nivel aberto.
-  const [itensUnificados, setItensUnificados] = useState<ItemPasta[]>([])
+  const [itens, setItens] = useState<ItemPasta[]>([])
+  const [total, setTotal] = useState(0)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [envioPreview, setEnvioPreview] = useState<ItemPasta | null>(null)
 
+  const termoDebounced = useDebounce(termo, DEBOUNCE_MS)
   const abortRef = useRef<AbortController | null>(null)
 
   const pastaAtual = pilhaPastas.length > 0 ? pilhaPastas[pilhaPastas.length - 1] : null
+  const termoLimpo = termoDebounced.trim()
+  const buscando = termoLimpo.length >= MIN_CARACTERES
+  const aguardandoMinimo = termo.trim().length > 0 && termo.trim().length < MIN_CARACTERES
 
   useEffect(() => {
     setPilhaPastas([])
   }, [authKey])
 
-  // A pasta so e recarregada quando o usuario navega ou troca de perfil.
-  // O termo digitado nunca chega ate aqui.
   useEffect(() => {
     abortRef.current?.abort()
+
+    // Um caractere nao dispara nada: com milhares de arquivos, quase tudo casaria.
+    if (termoLimpo.length > 0 && termoLimpo.length < MIN_CARACTERES) {
+      setCarregando(false)
+      return
+    }
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -36,30 +48,33 @@ export default function App() {
     setCarregando(true)
     setErro(null)
 
-    listarItens(authKey, {
-      externalKeyPasta: pastaAtual?.externalKey ?? null,
-      signal: controller.signal,
-    })
-      .then(setItensUnificados)
+    const requisicao = buscando
+      ? buscarArquivos(termoLimpo, authKey, {
+          externalKeyPasta: pastaAtual?.externalKey ?? null,
+          signal: controller.signal,
+        }).then((paginacao) => ({ itens: paginacao.dados, total: paginacao.total }))
+      : listarItens(authKey, {
+          externalKeyPasta: pastaAtual?.externalKey ?? null,
+          signal: controller.signal,
+        }).then((lista) => ({ itens: lista, total: lista.length }))
+
+    requisicao
+      .then((resultado) => {
+        setItens(resultado.itens)
+        setTotal(resultado.total)
+      })
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === 'AbortError') return
         setErro(e instanceof Error ? e.message : 'Erro desconhecido')
-        setItensUnificados([])
+        setItens([])
+        setTotal(0)
       })
       .finally(() => {
         if (!controller.signal.aborted) setCarregando(false)
       })
 
     return () => controller.abort()
-  }, [authKey, pastaAtual?.externalKey])
-
-  // Filtro 100% client-side, em memoria, sobre o nivel ja carregado.
-  // Roda de novo a cada tecla e nunca alcanca itens de subpastas.
-  const termoLimpo = termo.trim().toLowerCase()
-  const itensFiltrados =
-    termoLimpo.length === 0
-      ? itensUnificados
-      : itensUnificados.filter((item) => item.nome.toLowerCase().includes(termoLimpo))
+  }, [termoLimpo, buscando, authKey, pastaAtual?.externalKey])
 
   function entrarNaPasta(pasta: ItemPasta) {
     setTermo('')
@@ -78,10 +93,12 @@ export default function App() {
     setPilhaPastas((atual) => atual.slice(0, indice + 1))
   }
 
-  const contadorPastas = itensFiltrados.filter((i) => i.tipo === 'Pasta').length
-  const contadorEnvios = itensFiltrados.filter((i) => i.tipo === 'Envio').length
+  const contadorPastas = itens.filter((i) => i.tipo === 'Pasta').length
+  const contadorEnvios = itens.filter((i) => i.tipo === 'Envio').length
 
   function textoContador(): string {
+    if (buscando) return `${total} resultado(s) na subarvore`
+
     const partes: string[] = []
     if (contadorPastas > 0) partes.push(`${contadorPastas} pasta(s)`)
     if (contadorEnvios > 0) partes.push(`${contadorEnvios} envio(s)`)
@@ -91,10 +108,10 @@ export default function App() {
   return (
     <div className="container">
       <header>
-        <h1>Pastas e busca por nivel</h1>
+        <h1>Pastas e busca recursiva</h1>
         <p className="subtitulo">
-          Navegue pelas pastas permitidas. A busca filtra em memoria apenas os itens
-          ja carregados do nivel atual — a API nunca recebe o termo digitado.
+          Navegue pelas pastas permitidas ou busque em qualquer profundidade a partir
+          da pasta atual — a varredura acontece no banco, respeitando as permissoes.
         </p>
       </header>
 
@@ -123,29 +140,28 @@ export default function App() {
           </span>
           <input
             type="text"
-            placeholder="Pesquisar neste nivel..."
+            placeholder="Pesquisar pastas e envios..."
             value={termo}
             onChange={(e) => setTermo(e.target.value)}
             autoFocus
           />
-          {carregando && <span className="spinner" title="Carregando pasta..." />}
+          {carregando && <span className="spinner" title="Buscando..." />}
         </div>
-        {!carregando && !erro && <p className="contador">{textoContador()}</p>}
-        {termoLimpo.length > 0 && (
-          <p className="dica">
-            A busca vale so para esta pasta. Entre em uma subpasta para procurar mais fundo.
-          </p>
+        {!carregando && !erro && !aguardandoMinimo && (
+          <p className="contador">{textoContador()}</p>
         )}
       </section>
 
-      <NavegacaoPastas pilha={pilhaPastas} onNavegar={navegarPara} />
+      {!buscando && <NavegacaoPastas pilha={pilhaPastas} onNavegar={navegarPara} />}
 
       {erro && <p className="erro">{erro}</p>}
 
       <ListaResultados
-        itens={itensFiltrados}
+        itens={itens}
         termo={termo}
-        onPastaClick={entrarNaPasta}
+        buscando={buscando}
+        aguardandoMinimo={aguardandoMinimo}
+        onPastaClick={buscando ? undefined : entrarNaPasta}
         onEnvioClick={setEnvioPreview}
       />
 

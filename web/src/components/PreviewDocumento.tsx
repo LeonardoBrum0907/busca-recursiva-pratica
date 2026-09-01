@@ -74,6 +74,11 @@ export function PreviewDocumento({ envio, onFechar }: Props) {
             <h2 id="preview-titulo" className="preview-titulo">
               {envio.nome}
             </h2>
+            {envio.caminho && (
+              <p className="preview-caminho" title={envio.caminho}>
+                {envio.caminho}
+              </p>
+            )}
             <div className="preview-meta">
               {envio.statusEnvio && (
                 <span className="badge badge-status">{envio.statusEnvio}</span>

@@ -3,6 +3,8 @@ import type { ItemPasta } from '../types'
 interface Props {
   itens: ItemPasta[]
   termo: string
+  buscando: boolean
+  aguardandoMinimo: boolean
   onPastaClick?: (pasta: ItemPasta) => void
   onEnvioClick?: (envio: ItemPasta) => void
 }
@@ -13,15 +15,22 @@ function formatarData(data?: string | null): string {
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR')
 }
 
-export function ListaResultados({ itens, termo, onPastaClick, onEnvioClick }: Props) {
-  const termoLimpo = termo.trim()
+export function ListaResultados({
+  itens,
+  termo,
+  buscando,
+  aguardandoMinimo,
+  onPastaClick,
+  onEnvioClick,
+}: Props) {
+  if (aguardandoMinimo) {
+    return <p className="dica">Digite ao menos 2 caracteres para buscar.</p>
+  }
 
   if (itens.length === 0) {
     return (
       <p className="dica">
-        {termoLimpo.length === 0
-          ? 'Esta pasta esta vazia.'
-          : `Nenhum item deste nivel corresponde a "${termo}".`}
+        {buscando ? `Nenhum resultado para "${termo}".` : 'Esta pasta esta vazia.'}
       </p>
     )
   }
@@ -74,6 +83,12 @@ export function ListaResultados({ itens, termo, onPastaClick, onEnvioClick }: Pr
                   {item.statusEnvio && (
                     <span className="badge badge-status">{item.statusEnvio}</span>
                   )}
+                </div>
+              )}
+              {/* Na busca o item pode estar em qualquer nivel, entao mostra onde fica. */}
+              {buscando && item.caminho && (
+                <div className="resultado-caminho" title={item.caminho}>
+                  {item.caminho}
                 </div>
               )}
               {item.tipo === 'Envio' && (
