@@ -8,11 +8,11 @@ O repositório tem duas branches:
 
 | Branch | Papel |
 |---|---|
-| `main` | **Estado inicial** — a busca filtra em memória, no navegador, só o nível aberto. Ver [PROBLEMA.md](PROBLEMA.md). |
-| `busca-recursiva` | **Solução** — endpoint dedicado com `WITH RECURSIVE` no PostgreSQL. Ver `SOLUCAO-BUSCA-RECURSIVA.md` lá. |
+| `main` | **Estado inicial** — a busca filtra em memória, no navegador, só o nível aberto. Ver `PROBLEMA.md` lá. |
+| `busca-recursiva` | **Solução** — endpoint dedicado com `WITH RECURSIVE` no PostgreSQL. Ver [SOLUCAO-BUSCA-RECURSIVA.md](SOLUCAO-BUSCA-RECURSIVA.md). |
 
-A `busca-recursiva` sai da `main`, então o `git diff main..busca-recursiva` mostra
-exatamente o que o ticket pedia — nada mais.
+Esta branch sai da `main`, então `git diff main..busca-recursiva` mostra exatamente o
+que o ticket pedia — nada mais.
 
 ## Stack
 
@@ -21,7 +21,7 @@ exatamente o que o ticket pedia — nada mais.
 | Frontend | React + TypeScript + Vite |
 | Backend | .NET 10, Clean Architecture (Domain / Application / Infrastructure / API) |
 | Acesso a dados | Dapper + Npgsql |
-| Banco | PostgreSQL 16 |
+| Banco | PostgreSQL 16 (`WITH RECURSIVE`, `ILIKE`, `pg_trgm`) |
 | Testes | xUnit + Moq |
 
 ## Domínio
@@ -70,15 +70,22 @@ As duas podem ficar no ar ao mesmo tempo, lado a lado, apontando para o mesmo ba
 Detalhes de execução local (sem container), geração de volume e troubleshooting estão
 em [INSTRUCOES.md](INSTRUCOES.md).
 
-## O endpoint desta branch
+## Os endpoints
 
 ```
 GET /api/envio/conta/{externalKeyConta}/itens?externalKeyPasta={guid?}
 ```
 
-Devolve as pastas filhas diretas (ou as pastas-raiz, se `externalKeyPasta` for nulo) e
-os envios daquela pasta. **Não recebe termo de busca** — é justamente esse o problema
-que o ticket descreve.
+**Navegação.** Filhos diretos da pasta (ou pastas-raiz) e os envios daquele nível.
+
+```
+GET /api/envio/conta/{externalKeyConta}/buscar
+    ?termo={texto}&externalKeyPasta={guid?}&incluirPastas=true&pagina=1&tamanhoPagina=50
+```
+
+**Busca recursiva.** Varre a subárvore inteira a partir da pasta indicada (ou da raiz
+da conta), devolve pastas e envios cujo nome contém o termo, com o caminho completo de
+cada um e paginação.
 
 O usuário corrente é simulado pelo header **`X-Auth-Key`** (GUID do usuário), e o
 frontend tem um seletor:
@@ -100,11 +107,14 @@ dotnet test BuscaApi.sln
 busca-recursiva-pratica/
   docker-compose.db.yml  # Postgres compartilhado entre as branches
   docker-compose.yml     # API + web desta branch
-  db/                    # schema + seed (executados na 1a subida do container)
+  db/
+    01_schema.sql        # tabelas
+    02_seed.sql          # conta, usuários, árvore pequena
+    03_indices.sql       # pg_trgm + B-trees da busca
   api/                   # solução .NET 10
     BuscaApi.Domain/         # entidades, DTOs, interfaces
     BuscaApi.Application/    # EnvioService (regra de negócio + permissões)
-    BuscaApi.Infrastructure/ # Dapper + queries SQL
+    BuscaApi.Infrastructure/ # Dapper + queries SQL (a CTE recursiva mora aqui)
     BuscaApi/                # Web API (controller, Swagger, auth simulada)
     BuscaApi.Testes/         # xUnit + Moq
   scripts/               # gerador de volume (~10.000 envios)

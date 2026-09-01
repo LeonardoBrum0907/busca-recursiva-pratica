@@ -1,15 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// O proxy encaminha /api para a API .NET (http://localhost:5080),
-// evitando problemas de CORS durante o desenvolvimento.
+// Porta 5174 para poder rodar lado a lado com a branch main (5173).
+// O proxy encaminha /api para a API .NET, evitando CORS no desenvolvimento.
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 5174,
     proxy: {
       '/api': {
-        target: 'http://localhost:5080',
+        target: 'http://localhost:5081',
         changeOrigin: true,
       },
     },

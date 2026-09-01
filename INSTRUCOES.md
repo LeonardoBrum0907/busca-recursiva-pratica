@@ -29,14 +29,14 @@ docker compose -f docker-compose.db.yml up -d
 docker compose up --build -d
 ```
 
-Nesta branch (`main`, estado inicial):
+Nesta branch (`busca-recursiva`, a solução):
 
-- **Web** — http://localhost:5173
-- **API / Swagger** — http://localhost:5080/swagger
+- **Web** — http://localhost:5174
+- **API / Swagger** — http://localhost:5081/swagger
 - **PostgreSQL (compartilhado)** — `localhost:15432`
 
-Na branch `busca-recursiva`, o mesmo par de comandos sobe a API/frontend em `5174` /
-`5081`, contra o mesmo banco. As duas stacks podem ficar no ar juntas para comparar.
+Na branch `main`, o mesmo par de comandos sobe a API/frontend em `5173` / `5080`,
+contra o mesmo banco. Deixe as duas no ar para comparar o antes e o depois.
 
 Os PDFs gerados em `web/public/documentos/volume/` são montados no container do
 frontend.
@@ -47,10 +47,20 @@ docker compose down                             # para só esta branch
 docker compose -f docker-compose.db.yml down    # para o Postgres compartilhado
 ```
 
-> Para recriar o banco do zero (reaplicar schema + seed):
+> Para recriar o banco do zero (reaplicar schema + seed + índices):
 > `docker compose -f docker-compose.db.yml down -v && docker compose -f docker-compose.db.yml up -d`
 >
 > Isso apaga o volume compartilhado com a outra branch.
+
+### Índices
+
+`db/03_indices.sql` é aplicado automaticamente na primeira subida do banco, junto com
+o schema e o seed. Para aplicá-lo num banco que já existe (por exemplo, um criado a
+partir da `main`, que não tem esse arquivo):
+
+```bash
+docker exec -i busca_postgres psql -U busca -d busca < db/03_indices.sql
+```
 
 ---
 
@@ -63,7 +73,7 @@ dotnet build BuscaApi.sln
 dotnet test BuscaApi.sln
 ```
 
-Esperado: build sem erros e **5 testes verdes**.
+Esperado: build sem erros e **11 testes verdes**.
 
 Rodar a API fora do container:
 
@@ -74,17 +84,30 @@ dotnet run --project BuscaApi
 Teste rápido no Swagger (ou via curl), usando a conta semeada:
 
 ```bash
-# Ana (admin) — pastas-raiz da conta
+# Ana (admin) — acha contratos em qualquer profundidade
 curl -H "X-Auth-Key: a0000000-0000-0000-0000-000000000001" \
-  "http://localhost:5080/api/envio/conta/11111111-1111-1111-1111-111111111111/itens"
+  "http://localhost:5081/api/envio/conta/11111111-1111-1111-1111-111111111111/buscar?termo=contrato"
 
-# Maria (restrita ao Financeiro) — só o ramo Financeiro
+# Maria (restrita ao Financeiro) — só o ramo dela
 curl -H "X-Auth-Key: a0000000-0000-0000-0000-000000000002" \
-  "http://localhost:5080/api/envio/conta/11111111-1111-1111-1111-111111111111/itens"
+  "http://localhost:5081/api/envio/conta/11111111-1111-1111-1111-111111111111/buscar?termo=contrato"
+
+# Navegação (sem termo)
+curl -H "X-Auth-Key: a0000000-0000-0000-0000-000000000001" \
+  "http://localhost:5081/api/envio/conta/11111111-1111-1111-1111-111111111111/itens"
 ```
 
-Repare que não há parâmetro `termo`: nesta branch a API não sabe o que o usuário
-digitou.
+### Perfilar a query
+
+Com o volume gerado, vale medir o pior caso:
+
+```bash
+docker exec -it busca_postgres psql -U busca -d busca
+```
+
+E rodar `EXPLAIN ANALYZE` na `QueryBuscaArquivos` (em
+`api/BuscaApi.Infrastructure/Repositorios/Queries/QueriesEnvio.cs`) com `termo = 'Vol-'`.
+Sem os índices trigram o plano vira sequential scan em `envio`.
 
 ---
 
@@ -96,17 +119,23 @@ npm install
 npm run dev
 ```
 
-- App: http://localhost:5173 (faz proxy de `/api` para a API em `:5080`)
+- App: http://localhost:5174 (faz proxy de `/api` para a API em `:5081`)
 
 ---
 
 ## 4. Checklist de validação
 
-- [ ] Como **Ana**, a raiz lista `Clientes`, `Financeiro` e `RH`.
-- [ ] Como **Maria**, a raiz mostra só `Financeiro`; `Clientes` não aparece.
-- [ ] Digitar `contrato` na **raiz** não retorna nada — a busca não desce a árvore.
-- [ ] Navegar até `Clientes > 2026 > ACME` e digitar `contrato` lista os envios daquele nível.
-- [ ] Na aba Network, digitar **não** dispara requisição: o filtro é client-side.
+- [ ] Como **Ana**, campo vazio: a raiz lista `Clientes`, `Financeiro` e `RH`.
+- [ ] Como **Ana**, `contrato` na raiz: aparecem envios de `Clientes > 2026 > ACME`,
+      `Clientes > 2025 > Initech`, `Financeiro > Contratos` e `RH > Admissoes`.
+- [ ] Cada resultado mostra o **caminho** completo.
+- [ ] `ACME` na raiz devolve a pasta `ACME` **uma única vez**.
+- [ ] `Financeiro` na raiz devolve a pasta-raiz `Financeiro`.
+- [ ] Dentro de `Financeiro`, buscar `contrato` não devolve a própria `Financeiro`.
+- [ ] Como **Maria**, `contrato` na raiz devolve só o ramo Financeiro.
+- [ ] Digitar 1 caractere não dispara busca (mínimo de 2).
+- [ ] Digitação rápida dispara **uma** chamada (debounce de 300 ms — ver aba Network).
+- [ ] O spinner aparece durante a busca.
 - [ ] Clicar num envio abre o preview do PDF.
 - [ ] `dotnet test BuscaApi.sln` verde.
 
@@ -114,9 +143,9 @@ npm run dev
 
 ## 5. Simular volume do cliente (10.000 arquivos)
 
-Para reproduzir a lentidão que o cliente enfrenta com milhares de arquivos, use o
-gerador de volume. Ele insere ~10.000 envios no PostgreSQL e replica o `teste.pdf`
-para cada um em `web/public/documentos/volume/`.
+Para reproduzir a carga que o cliente enfrenta, use o gerador de volume. Ele insere
+~10.000 envios no PostgreSQL e replica o `teste.pdf` para cada um em
+`web/public/documentos/volume/`.
 
 Pré-requisito: banco rodando com o seed pequeno já aplicado.
 
@@ -135,13 +164,12 @@ node gerar-volume.mjs --quantidade 5000   # gera metade do volume
 node gerar-volume.mjs --limpar            # remove volume existente e regera
 ```
 
-Após gerar, recarregue o app e teste:
+Depois de gerar, os termos interessantes são:
 
-- Na **raiz**, busque `contrato` ou `Vol-` — nenhum resultado, a busca não desce.
-- Navegue em `Clientes > Volume > Setor_001 > Pasta_001` e busque `Vol-` para ver os
-  envios **daquela pasta**.
-- Abra um envio — o preview carrega o PDF (`/documentos/volume/{uuid}.pdf`, ou
-  `teste.pdf` nos envios do seed).
+- `Vol-` — pior caso, casa quase todos os ~10.000 envios gerados.
+- `contrato` — cerca de 1.250 resultados.
+
+Compare com a `main` na porta 5173: lá, os mesmos termos na raiz não retornam nada.
 
 > Os PDFs gerados ficam em `web/public/documentos/volume/` (ignorados pelo git).
 > Estimativa de disco: ~280 MB para 10.000 arquivos.
@@ -155,5 +183,7 @@ Após gerar, recarregue o app e teste:
   (`Host=localhost;Port=15432;Database=busca;Username=busca;Password=busca`).
 - **Porta 15432 ocupada:** ajuste o mapeamento em `docker-compose.db.yml`
   (ex.: `"15433:5432"`) e a connection string para `Port=15433`.
+- **Busca lenta com volume:** confirme que os índices existem
+  (`\di ix_*` no psql). Se não, aplique `db/03_indices.sql`.
 - **CORS no frontend:** o dev server usa proxy (`/api`), então não deve ocorrer. Se
   rodar o front em outra porta, ajuste `WithOrigins(...)` em `api/BuscaApi/Program.cs`.
