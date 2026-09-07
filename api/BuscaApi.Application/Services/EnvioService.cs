@@ -41,4 +41,13 @@ public class EnvioService(
 
         return await envioRepository.ListarItensAsync(conta.IdConta, idPasta, idUsuarioFiltro);
     }
+
+    public async Task<TotaisConta> ObterTotaisAsync(Guid externalKeyConta)
+    {
+        var conta = await contaRepository.GetByExternalKeyAsync(externalKeyConta)
+                    ?? throw new DataNotFoundException("Conta não encontrada");
+
+        var totalArquivos = await envioRepository.ContarArquivosAsync(conta.IdConta);
+        return new TotaisConta { TotalArquivos = totalArquivos };
+    }
 }

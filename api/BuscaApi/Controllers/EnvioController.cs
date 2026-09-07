@@ -20,4 +20,13 @@ public class EnvioController(IEnvioService envioService) : ControllerBase
         var itens = await envioService.ListarItensAsync(externalKeyConta, externalKeyPasta);
         return Ok(itens);
     }
+
+    /// <summary>
+    /// Devolve totais da conta (quantidade de envios/arquivos no banco).
+    /// </summary>
+    [HttpGet("conta/{externalKeyConta:guid}/totais")]
+    public async Task<ActionResult<TotaisConta>> ObterTotais(Guid externalKeyConta)
+    {
+        return Ok(await envioService.ObterTotaisAsync(externalKeyConta));
+    }
 }

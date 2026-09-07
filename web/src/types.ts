@@ -12,3 +12,7 @@ export interface ItemPasta {
   dataExpiracao?: string | null
   nomeDestinatarios?: string | null
 }
+
+export interface TotaisConta {
+  totalArquivos: number
+}

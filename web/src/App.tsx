@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { USUARIOS_DEMO } from './config'
-import { listarItens } from './services/envioService'
+import { listarItens, obterTotais } from './services/envioService'
 import type { ItemPasta, PastaNavegacao } from './types'
 import { ListaResultados } from './components/ListaResultados'
 import { NavegacaoPastas } from './components/NavegacaoPastas'
@@ -16,6 +16,8 @@ export default function App() {
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [envioPreview, setEnvioPreview] = useState<ItemPasta | null>(null)
+  const [durationMs, setDurationMs] = useState<number | null>(null)
+  const [totalArquivos, setTotalArquivos] = useState<number | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
 
@@ -23,6 +25,19 @@ export default function App() {
 
   useEffect(() => {
     setPilhaPastas([])
+  }, [authKey])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    obterTotais(authKey, controller.signal)
+      .then((totais) => setTotalArquivos(totais.totalArquivos))
+      .catch((e: unknown) => {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+        // Totais sao informativos; nao bloqueiam a navegacao.
+      })
+
+    return () => controller.abort()
   }, [authKey])
 
   // A pasta so e recarregada quando o usuario navega ou troca de perfil.
@@ -36,11 +51,16 @@ export default function App() {
     setCarregando(true)
     setErro(null)
 
+    const inicio = performance.now()
+
     listarItens(authKey, {
       externalKeyPasta: pastaAtual?.externalKey ?? null,
       signal: controller.signal,
     })
-      .then(setItensUnificados)
+      .then((itens) => {
+        setItensUnificados(itens)
+        setDurationMs(Math.round(performance.now() - inicio))
+      })
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === 'AbortError') return
         setErro(e instanceof Error ? e.message : 'Erro desconhecido')
@@ -56,10 +76,22 @@ export default function App() {
   // Filtro 100% client-side, em memoria, sobre o nivel ja carregado.
   // Roda de novo a cada tecla e nunca alcanca itens de subpastas.
   const termoLimpo = termo.trim().toLowerCase()
-  const itensFiltrados =
-    termoLimpo.length === 0
-      ? itensUnificados
-      : itensUnificados.filter((item) => item.nome.toLowerCase().includes(termoLimpo))
+  const { itensFiltrados, filtroMs } = useMemo(() => {
+    if (termoLimpo.length === 0) {
+      return { itensFiltrados: itensUnificados, filtroMs: null as number | null }
+    }
+
+    const inicio = performance.now()
+    const filtrados = itensUnificados.filter((item) =>
+      item.nome.toLowerCase().includes(termoLimpo),
+    )
+    return {
+      itensFiltrados: filtrados,
+      filtroMs: Math.round(performance.now() - inicio),
+    }
+  }, [itensUnificados, termoLimpo])
+
+  const durationExibida = termoLimpo.length > 0 ? (filtroMs ?? 0) : durationMs
 
   function entrarNaPasta(pasta: ItemPasta) {
     setTermo('')
@@ -81,11 +113,19 @@ export default function App() {
   const contadorPastas = itensFiltrados.filter((i) => i.tipo === 'Pasta').length
   const contadorEnvios = itensFiltrados.filter((i) => i.tipo === 'Envio').length
 
-  function textoContador(): string {
+  function textoItensEncontrados(): string {
     const partes: string[] = []
     if (contadorPastas > 0) partes.push(`${contadorPastas} pasta(s)`)
     if (contadorEnvios > 0) partes.push(`${contadorEnvios} envio(s)`)
     return partes.length > 0 ? partes.join(', ') : 'nenhum item'
+  }
+
+  function textoContador(): string {
+    const partes: string[] = []
+    if (durationExibida !== null) partes.push(`${durationExibida}ms`)
+    partes.push(textoItensEncontrados())
+    if (totalArquivos !== null) partes.push(`${totalArquivos} arquivos totais`)
+    return partes.join(' - ')
   }
 
   return (

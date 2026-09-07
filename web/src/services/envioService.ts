@@ -1,5 +1,5 @@
 import { EXTERNAL_KEY_CONTA } from '../config'
-import type { ItemPasta } from '../types'
+import type { ItemPasta, TotaisConta } from '../types'
 
 export interface ListarItensOpcoes {
   externalKeyPasta?: string | null
@@ -37,4 +37,24 @@ export async function listarItens(
   }
 
   return (await response.json()) as ItemPasta[]
+}
+
+/** Total de envios/arquivos da conta no banco. */
+export async function obterTotais(
+  authKey: string,
+  signal?: AbortSignal,
+): Promise<TotaisConta> {
+  const response = await fetch(`/api/envio/conta/${EXTERNAL_KEY_CONTA}/totais`, {
+    method: 'GET',
+    headers: {
+      'X-Auth-Key': authKey,
+    },
+    signal,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Falha ao carregar totais (HTTP ${response.status})`)
+  }
+
+  return (await response.json()) as TotaisConta
 }

@@ -89,4 +89,10 @@ FROM (
 ORDER BY
     CASE WHEN tipo = 'Pasta' THEN 0 ELSE 1 END,
     nome;";
+
+    public const string QueryContarArquivos = @"
+SELECT COUNT(*)::int
+FROM envio
+WHERE idconta = @idConta
+  AND statusregistro = 0;";
 }

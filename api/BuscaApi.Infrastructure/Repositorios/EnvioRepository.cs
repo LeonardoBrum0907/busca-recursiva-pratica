@@ -22,4 +22,10 @@ public class EnvioRepository(DapperContext dapperContext) : IEnvioRepository
 
         return itens.ToList();
     }
+
+    public async Task<int> ContarArquivosAsync(int idConta)
+    {
+        using var connection = dapperContext.CreateConnection();
+        return await connection.ExecuteScalarAsync<int>(QueriesEnvio.QueryContarArquivos, new { idConta });
+    }
 }
