@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { USUARIOS_DEMO } from './config'
 import { useDebounce } from './hooks/useDebounce'
-import { buscarArquivos, listarItens } from './services/envioService'
+import { buscarArquivos, listarItens, obterTotais } from './services/envioService'
 import type { ItemPasta, PastaNavegacao } from './types'
 import { ListaResultados } from './components/ListaResultados'
 import { NavegacaoPastas } from './components/NavegacaoPastas'
@@ -20,6 +20,8 @@ export default function App() {
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [envioPreview, setEnvioPreview] = useState<ItemPasta | null>(null)
+  const [durationMs, setDurationMs] = useState<number | null>(null)
+  const [totalArquivos, setTotalArquivos] = useState<number | null>(null)
 
   const termoDebounced = useDebounce(termo, DEBOUNCE_MS)
   const abortRef = useRef<AbortController | null>(null)
@@ -31,6 +33,19 @@ export default function App() {
 
   useEffect(() => {
     setPilhaPastas([])
+  }, [authKey])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    obterTotais(authKey, controller.signal)
+      .then((totais) => setTotalArquivos(totais.totalArquivos))
+      .catch((e: unknown) => {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+        // Totais sao informativos; nao bloqueiam a navegacao.
+      })
+
+    return () => controller.abort()
   }, [authKey])
 
   useEffect(() => {
@@ -48,6 +63,8 @@ export default function App() {
     setCarregando(true)
     setErro(null)
 
+    const inicio = performance.now()
+
     const requisicao = buscando
       ? buscarArquivos(termoLimpo, authKey, {
           externalKeyPasta: pastaAtual?.externalKey ?? null,
@@ -62,6 +79,7 @@ export default function App() {
       .then((resultado) => {
         setItens(resultado.itens)
         setTotal(resultado.total)
+        setDurationMs(Math.round(performance.now() - inicio))
       })
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === 'AbortError') return
@@ -96,13 +114,21 @@ export default function App() {
   const contadorPastas = itens.filter((i) => i.tipo === 'Pasta').length
   const contadorEnvios = itens.filter((i) => i.tipo === 'Envio').length
 
-  function textoContador(): string {
+  function textoItensEncontrados(): string {
     if (buscando) return `${total} resultado(s) na subarvore`
 
     const partes: string[] = []
     if (contadorPastas > 0) partes.push(`${contadorPastas} pasta(s)`)
     if (contadorEnvios > 0) partes.push(`${contadorEnvios} envio(s)`)
     return partes.length > 0 ? partes.join(', ') : 'nenhum item'
+  }
+
+  function textoContador(): string {
+    const partes: string[] = []
+    if (durationMs !== null) partes.push(`${durationMs}ms`)
+    partes.push(textoItensEncontrados())
+    if (totalArquivos !== null) partes.push(`${totalArquivos} arquivos totais`)
+    return partes.join(' - ')
   }
 
   return (

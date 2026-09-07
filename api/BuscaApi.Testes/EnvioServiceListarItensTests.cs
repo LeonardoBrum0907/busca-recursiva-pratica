@@ -139,4 +139,33 @@ public class EnvioServiceListarItensTests
         await Assert.ThrowsAsync<DataNotFoundException>(
             () => _envioService.ListarItensAsync(conta.ExternalKey, null));
     }
+
+    [Fact(DisplayName = "Deve lançar DataNotFoundException ao obter totais de conta inexistente")]
+    public async Task ObterTotaisAsync_ContaInexistente_LancaDataNotFoundException()
+    {
+        _contaRepoMock
+            .Setup(x => x.GetByExternalKeyAsync(It.IsAny<Guid>()))
+            .ReturnsAsync((Conta?)null);
+
+        await Assert.ThrowsAsync<DataNotFoundException>(
+            () => _envioService.ObterTotaisAsync(Guid.NewGuid()));
+    }
+
+    [Fact(DisplayName = "Deve devolver o total de arquivos da conta")]
+    public async Task ObterTotaisAsync_ContaExistente_RetornaTotalArquivos()
+    {
+        var conta = new Conta { IdConta = 42, ExternalKey = Guid.NewGuid() };
+
+        _contaRepoMock
+            .Setup(x => x.GetByExternalKeyAsync(conta.ExternalKey))
+            .ReturnsAsync(conta);
+        _envioRepoMock
+            .Setup(x => x.ContarArquivosAsync(42))
+            .ReturnsAsync(30728);
+
+        var totais = await _envioService.ObterTotaisAsync(conta.ExternalKey);
+
+        Assert.Equal(30728, totais.TotalArquivos);
+        _envioRepoMock.Verify(x => x.ContarArquivosAsync(42), Times.Once);
+    }
 }

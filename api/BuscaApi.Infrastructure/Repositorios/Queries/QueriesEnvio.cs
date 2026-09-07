@@ -218,4 +218,10 @@ ORDER BY
     tipo,
     nome
 LIMIT @tamanhoPagina OFFSET @offset;";
+
+    public const string QueryContarArquivos = @"
+SELECT COUNT(*)::int
+FROM envio
+WHERE idconta = @idConta
+  AND statusregistro = 0;";
 }

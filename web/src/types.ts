@@ -23,3 +23,7 @@ export interface Paginacao<T> {
   total: number
   dados: T[]
 }
+
+export interface TotaisConta {
+  totalArquivos: number
+}

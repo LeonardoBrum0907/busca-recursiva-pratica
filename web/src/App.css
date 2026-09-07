@@ -92,6 +92,7 @@ header h1 {
   margin: 8px 2px 0;
   font-size: 0.82rem;
   color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 .navegacao-pastas {

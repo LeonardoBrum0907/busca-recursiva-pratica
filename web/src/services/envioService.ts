@@ -1,5 +1,5 @@
 import { EXTERNAL_KEY_CONTA } from '../config'
-import type { ItemPasta, Paginacao } from '../types'
+import type { ItemPasta, Paginacao, TotaisConta } from '../types'
 
 export interface ListarItensOpcoes {
   externalKeyPasta?: string | null
@@ -13,7 +13,7 @@ export interface BuscarArquivosOpcoes {
   signal?: AbortSignal
 }
 
-function montarUrl(caminho: string, params: URLSearchParams): string {
+function montarUrl(caminho: string, params: URLSearchParams = new URLSearchParams()): string {
   const queryString = params.toString()
   return `/api/envio/conta/${EXTERNAL_KEY_CONTA}/${caminho}${queryString ? `?${queryString}` : ''}`
 }
@@ -62,4 +62,12 @@ export async function buscarArquivos(
   }
 
   return chamar<Paginacao<ItemPasta>>(montarUrl('buscar', params), authKey, signal)
+}
+
+/** Total de envios/arquivos da conta no banco. */
+export async function obterTotais(
+  authKey: string,
+  signal?: AbortSignal,
+): Promise<TotaisConta> {
+  return chamar<TotaisConta>(montarUrl('totais'), authKey, signal)
 }

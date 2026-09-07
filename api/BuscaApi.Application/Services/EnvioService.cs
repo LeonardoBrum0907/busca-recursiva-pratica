@@ -58,6 +58,13 @@ public class EnvioService(
         };
     }
 
+    public async Task<TotaisConta> ObterTotaisAsync(Guid externalKeyConta)
+    {
+        var conta = await ResolverContaAsync(externalKeyConta);
+        var totalArquivos = await envioRepository.ContarArquivosAsync(conta.IdConta);
+        return new TotaisConta { TotalArquivos = totalArquivos };
+    }
+
     private async Task<Conta> ResolverContaAsync(Guid externalKeyConta) =>
         await contaRepository.GetByExternalKeyAsync(externalKeyConta)
         ?? throw new DataNotFoundException("Conta não encontrada");

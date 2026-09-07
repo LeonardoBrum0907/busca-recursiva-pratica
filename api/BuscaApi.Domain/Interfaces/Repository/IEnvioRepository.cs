@@ -25,4 +25,9 @@ public interface IEnvioRepository
         int pagina,
         int tamanhoPagina,
         int? idUsuarioFiltro = null);
+
+    /// <summary>
+    /// Conta todos os envios ativos da conta (independente de permissao de pasta).
+    /// </summary>
+    Task<int> ContarArquivosAsync(int idConta);
 }

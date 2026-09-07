@@ -8,4 +8,6 @@ public interface IEnvioService
     Task<IReadOnlyList<ItemPasta>> ListarItensAsync(Guid externalKeyConta, Guid? externalKeyPasta);
 
     Task<Paginacao<ArquivoBuscaResultado>> BuscarArquivosAsync(BuscaArquivosQuery query);
+
+    Task<TotaisConta> ObterTotaisAsync(Guid externalKeyConta);
 }
