@@ -73,10 +73,11 @@ em [INSTRUCOES.md](INSTRUCOES.md).
 ## Os endpoints
 
 ```
-GET /api/envio/conta/{externalKeyConta}/itens?externalKeyPasta={guid?}
+GET /api/envio/conta/{externalKeyConta}/itens?externalKeyPasta={guid?}&pagina=1&tamanhoPagina=50
 ```
 
-**Navegação.** Filhos diretos da pasta (ou pastas-raiz) e os envios daquele nível.
+**Navegação.** Filhos diretos da pasta (ou pastas-raiz) e os envios daquele nível,
+paginados: uma pasta pode ter milhares de envios e o front só desenha uma página.
 
 ```
 GET /api/envio/conta/{externalKeyConta}/buscar

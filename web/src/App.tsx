@@ -5,11 +5,13 @@ import { buscarArquivos, listarItens, obterTotais } from './services/envioServic
 import type { ItemPasta, PastaNavegacao } from './types'
 import { ListaResultados } from './components/ListaResultados'
 import { NavegacaoPastas } from './components/NavegacaoPastas'
+import { Paginador } from './components/Paginador'
 import { PreviewDocumento } from './components/PreviewDocumento'
 import './App.css'
 
 const MIN_CARACTERES = 2
 const DEBOUNCE_MS = 300
+const TAMANHO_PAGINA = 50
 
 export default function App() {
   const [authKey, setAuthKey] = useState(USUARIOS_DEMO[0].authKey)
@@ -17,6 +19,7 @@ export default function App() {
   const [pilhaPastas, setPilhaPastas] = useState<PastaNavegacao[]>([])
   const [itens, setItens] = useState<ItemPasta[]>([])
   const [total, setTotal] = useState(0)
+  const [pagina, setPagina] = useState(1)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [envioPreview, setEnvioPreview] = useState<ItemPasta | null>(null)
@@ -30,6 +33,7 @@ export default function App() {
   const termoLimpo = termoDebounced.trim()
   const buscando = termoLimpo.length >= MIN_CARACTERES
   const aguardandoMinimo = termo.trim().length > 0 && termo.trim().length < MIN_CARACTERES
+  const totalPaginas = Math.ceil(total / TAMANHO_PAGINA)
 
   useEffect(() => {
     setPilhaPastas([])
@@ -65,19 +69,19 @@ export default function App() {
 
     const inicio = performance.now()
 
+    const opcoes = {
+      externalKeyPasta: pastaAtual?.externalKey ?? null,
+      pagina,
+      tamanhoPagina: TAMANHO_PAGINA,
+      signal: controller.signal,
+    }
     const requisicao = buscando
-      ? buscarArquivos(termoLimpo, authKey, {
-          externalKeyPasta: pastaAtual?.externalKey ?? null,
-          signal: controller.signal,
-        }).then((paginacao) => ({ itens: paginacao.dados, total: paginacao.total }))
-      : listarItens(authKey, {
-          externalKeyPasta: pastaAtual?.externalKey ?? null,
-          signal: controller.signal,
-        }).then((lista) => ({ itens: lista, total: lista.length }))
+      ? buscarArquivos(termoLimpo, authKey, opcoes)
+      : listarItens(authKey, opcoes)
 
     requisicao
       .then((resultado) => {
-        setItens(resultado.itens)
+        setItens(resultado.dados)
         setTotal(resultado.total)
         setDurationMs(Math.round(performance.now() - inicio))
       })
@@ -92,10 +96,11 @@ export default function App() {
       })
 
     return () => controller.abort()
-  }, [termoLimpo, buscando, authKey, pastaAtual?.externalKey])
+  }, [termoLimpo, buscando, authKey, pastaAtual?.externalKey, pagina])
 
   function entrarNaPasta(pasta: ItemPasta) {
     setTermo('')
+    setPagina(1)
     setPilhaPastas((atual) => [
       ...atual,
       { externalKey: pasta.externalKey, nome: pasta.nome },
@@ -104,6 +109,7 @@ export default function App() {
 
   function navegarPara(indice: number) {
     setTermo('')
+    setPagina(1)
     if (indice < 0) {
       setPilhaPastas([])
       return
@@ -116,6 +122,8 @@ export default function App() {
 
   function textoItensEncontrados(): string {
     if (buscando) return `${total} resultado(s) na subarvore`
+    // Com mais de uma pagina, contar so a pagina na tela enganaria.
+    if (totalPaginas > 1) return `${total} item(ns) nesta pasta`
 
     const partes: string[] = []
     if (contadorPastas > 0) partes.push(`${contadorPastas} pasta(s)`)
@@ -146,7 +154,10 @@ export default function App() {
         <select
           id="usuario"
           value={authKey}
-          onChange={(e) => setAuthKey(e.target.value)}
+          onChange={(e) => {
+            setAuthKey(e.target.value)
+            setPagina(1)
+          }}
         >
           {USUARIOS_DEMO.map((u) => (
             <option key={u.authKey} value={u.authKey}>
@@ -168,7 +179,10 @@ export default function App() {
             type="text"
             placeholder="Pesquisar pastas e envios..."
             value={termo}
-            onChange={(e) => setTermo(e.target.value)}
+            onChange={(e) => {
+              setTermo(e.target.value)
+              setPagina(1)
+            }}
             autoFocus
           />
           {carregando && <span className="spinner" title="Buscando..." />}
@@ -190,6 +204,10 @@ export default function App() {
         onPastaClick={buscando ? undefined : entrarNaPasta}
         onEnvioClick={setEnvioPreview}
       />
+
+      {!carregando && !aguardandoMinimo && (
+        <Paginador pagina={pagina} totalPaginas={totalPaginas} onMudar={setPagina} />
+      )}
 
       {envioPreview && (
         <PreviewDocumento envio={envioPreview} onFechar={() => setEnvioPreview(null)} />

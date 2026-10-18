@@ -7,6 +7,9 @@ public static class QueriesEnvio
     /// (ou as pastas-raiz da conta) e os envios que estao nessa pasta. Usada pela
     /// navegacao — a tela inicial nao pode despejar milhares de itens.
     ///
+    /// Paginada: uma pasta pode ter milhares de envios, e o front so desenha uma pagina.
+    /// O total vem de COUNT(*) OVER (), como na busca.
+    ///
     /// A CTE PastasPermitidas resolve visibilidade: um usuario nao-admin enxerga as pastas
     /// vinculadas em rlcusuariopasta e todas as descendentes delas.
     /// </summary>
@@ -78,7 +81,8 @@ SELECT
     statusenvio       AS StatusEnvio,
     datacriacao       AS DataCriacao,
     dataexpiracao     AS DataExpiracao,
-    nomedestinatarios AS NomeDestinatarios
+    nomedestinatarios AS NomeDestinatarios,
+    COUNT(*) OVER ()  AS Total
 FROM (
     SELECT * FROM Pastas
     UNION ALL
@@ -86,7 +90,9 @@ FROM (
 ) Resultado
 ORDER BY
     CASE WHEN tipo = 'Pasta' THEN 0 ELSE 1 END,
-    nome;";
+    nome,
+    externalkey
+LIMIT @tamanhoPagina OFFSET @offset;";
 
     /// <summary>
     /// Busca recursiva: dado um termo e uma pasta de partida (ou a raiz da conta),

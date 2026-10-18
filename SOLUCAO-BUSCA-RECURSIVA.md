@@ -32,8 +32,34 @@ GET /api/envio/conta/{externalKeyConta}/buscar
     &tamanhoPagina=50
 ```
 
-O endpoint de navegação (`/itens`) continua igual: a tela inicial não pode despejar
-milhares de itens. A busca é que atravessa a árvore.
+O endpoint de navegação (`/itens`) continua listando um nível só. A busca é que
+atravessa a árvore.
+
+### Listagem paginada
+
+Com a busca resolvida, sobrou a pasta grande: abrir uma pasta com milhares de envios
+trazia todos numa resposta e o front desenhava todos. `/itens` passou a paginar como
+`/buscar` (`pagina`, `tamanhoPagina`, total por `COUNT(*) OVER ()`), e o front ganhou
+um paginador: cada troca de página é uma nova requisição.
+
+Faltava também um índice em `destinatario (idenvio)`. As duas queries montam a lista de
+destinatários de cada envio com um `LEFT JOIN LATERAL`, e sem o índice cada envio varre
+a tabela `destinatario` inteira.
+
+Medido com `node gerar-volume.mjs --quantidade 5000 --pasta-grande 5000` (cerca de
+10.000 envios, 5.000 deles em `Clientes > Volume > Arquivo_Geral`), como a Ana, com o
+front servido por `vite preview`. "Abrir a pasta grande" é do clique até as linhas
+desenhadas, mediana de 5 rodadas no Chromium headless:
+
+| Situação | Abrir a pasta grande | Resposta de `/itens` |
+|---|---|---|
+| Sem paginação, sem índice | 3,3 s | 5.000 itens, 1,1 MB |
+| Só paginação | 2,3 s | 50 itens, 11 KB |
+| Só o índice | 1,4 s | 5.000 itens, 1,1 MB |
+| Paginação + índice | 0,38 s | 50 itens, 11 KB |
+
+O índice também derruba a busca ampla: `termo=vol-` (10.000 resultados) cai de 4,4 s
+para 0,55 s, e `termo=contrato` de 1,5 s para 1,0 s.
 
 ### Por que no banco, e não na aplicação
 

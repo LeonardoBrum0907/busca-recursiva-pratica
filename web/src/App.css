@@ -443,3 +443,31 @@ header h1 {
     background: #374151;
   }
 }
+
+.paginador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0 8px;
+  font-size: 0.85rem;
+}
+
+.paginador-botao {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.paginador-botao:disabled {
+  color: #9ca3af;
+  cursor: default;
+}
+
+.paginador-posicao {
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}

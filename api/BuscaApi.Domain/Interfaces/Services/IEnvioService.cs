@@ -5,7 +5,8 @@ namespace BuscaApi.Domain.Interfaces.Services;
 
 public interface IEnvioService
 {
-    Task<IReadOnlyList<ItemPasta>> ListarItensAsync(Guid externalKeyConta, Guid? externalKeyPasta);
+    Task<Paginacao<ItemPasta>> ListarItensAsync(
+        Guid externalKeyConta, Guid? externalKeyPasta, int pagina, int tamanhoPagina);
 
     Task<Paginacao<ArquivoBuscaResultado>> BuscarArquivosAsync(BuscaArquivosQuery query);
 
