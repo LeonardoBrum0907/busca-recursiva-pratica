@@ -8,6 +8,10 @@
  *   node gerar-volume.mjs
  *   node gerar-volume.mjs --quantidade 5000
  *   node gerar-volume.mjs --limpar
+ *   node gerar-volume.mjs --pasta-grande 5000
+ *
+ * --pasta-grande N cria, além da árvore, uma pasta Clientes > Volume > Arquivo_Geral com N
+ * envios diretos. É o caso da pasta que o cliente abre e o front precisa listar inteira.
  */
 
 import fs from 'node:fs'
@@ -47,9 +51,17 @@ function parseArgs() {
   const args = process.argv.slice(2)
   let quantidade = 10_000
   let limpar = false
+  let pastaGrande = 0
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--limpar') limpar = true
+    if (args[i] === '--pasta-grande' && args[i + 1]) {
+      pastaGrande = parseInt(args[++i], 10)
+      if (Number.isNaN(pastaGrande) || pastaGrande < 1) {
+        console.error('Tamanho da pasta grande inválido. Use um número inteiro positivo.')
+        process.exit(1)
+      }
+    }
     if (args[i] === '--quantidade' && args[i + 1]) {
       quantidade = parseInt(args[++i], 10)
       if (Number.isNaN(quantidade) || quantidade < 1) {
@@ -59,7 +71,7 @@ function parseArgs() {
     }
   }
 
-  return { quantidade, limpar }
+  return { quantidade, limpar, pastaGrande }
 }
 
 function escalarRamos(quantidadeAlvo) {
@@ -169,6 +181,26 @@ function gerarDataCriacao(indice) {
   return base.toISOString().slice(0, 10)
 }
 
+function novoEnvio(idpasta, indice) {
+  const status = STATUS[indice % STATUS.length]
+  const datacriacao = gerarDataCriacao(indice)
+  const dataexpiracao =
+    status === 'Pendente'
+      ? new Date(datacriacao).toISOString().slice(0, 10).replace(/-01$/, '-02')
+      : null
+
+  return {
+    idpasta,
+    externalkey: randomUUID(),
+    assunto: gerarAssunto(indice),
+    statusenvio: status,
+    datacriacao,
+    dataexpiracao,
+    nomeDest: `Destinatario Vol-${String(indice).padStart(5, '0')}`,
+    emailDest: `vol${indice}@demo.com`,
+  }
+}
+
 async function inserirLoteEnvios(client, envios) {
   if (envios.length === 0) return
 
@@ -221,7 +253,7 @@ async function inserirLoteDestinatarios(client, destinatarios) {
   )
 }
 
-async function gerarVolume(client, ramos) {
+async function gerarVolume(client, ramos, pastaGrande) {
   if (!fs.existsSync(PDF_ORIGEM)) {
     throw new Error(`PDF de origem não encontrado: ${PDF_ORIGEM}`)
   }
@@ -234,6 +266,7 @@ async function gerarVolume(client, ramos) {
   let indiceGlobal = 1
 
   const loteEnvios = []
+  let idPrimeiroVolume = null
 
   for (const ramo of ramos) {
     const { rows: [pastaPai] } = await client.query(
@@ -252,6 +285,7 @@ async function gerarVolume(client, ramos) {
       [ramo.idPastaPai, randomUUID(), ID_CONTA],
     )
     totalPastas++
+    idPrimeiroVolume ??= pastaVolume.idpasta
 
     console.log(`\nRamo: ${pastaPai.nomepasta} > Volume (idpasta=${pastaVolume.idpasta})`)
 
@@ -276,25 +310,7 @@ async function gerarVolume(client, ramos) {
         totalPastas++
 
         for (let e = 1; e <= ramo.enviosPorPasta; e++) {
-          const externalkey = randomUUID()
-          const assunto = gerarAssunto(indiceGlobal)
-          const status = STATUS[indiceGlobal % STATUS.length]
-          const datacriacao = gerarDataCriacao(indiceGlobal)
-          const dataexpiracao =
-            status === 'Pendente'
-              ? new Date(datacriacao).toISOString().slice(0, 10).replace(/-01$/, '-02')
-              : null
-
-          loteEnvios.push({
-            idpasta: pasta.idpasta,
-            externalkey,
-            assunto,
-            statusenvio: status,
-            datacriacao,
-            dataexpiracao,
-            nomeDest: `Destinatario Vol-${String(indiceGlobal).padStart(5, '0')}`,
-            emailDest: `vol${indiceGlobal}@demo.com`,
-          })
+          loteEnvios.push(novoEnvio(pasta.idpasta, indiceGlobal))
 
           indiceGlobal++
           totalEnvios++
@@ -303,6 +319,27 @@ async function gerarVolume(client, ramos) {
             await flushLote(client, loteEnvios, totalEnvios)
           }
         }
+      }
+    }
+  }
+
+  if (pastaGrande > 0) {
+    const { rows: [arquivo] } = await client.query(
+      `INSERT INTO pasta (idpastapai, externalkey, nomepasta, idconta, statusregistro)
+       VALUES ($1, $2, 'Arquivo_Geral', $3, 0)
+       RETURNING idpasta`,
+      [idPrimeiroVolume, randomUUID(), ID_CONTA],
+    )
+    totalPastas++
+    console.log(`\nPasta grande: Volume > Arquivo_Geral com ${pastaGrande} envios`)
+
+    for (let e = 1; e <= pastaGrande; e++) {
+      loteEnvios.push(novoEnvio(arquivo.idpasta, indiceGlobal))
+      indiceGlobal++
+      totalEnvios++
+
+      if (loteEnvios.length >= LOTE) {
+        await flushLote(client, loteEnvios, totalEnvios)
       }
     }
   }
@@ -360,7 +397,7 @@ async function volumeJaExiste(client) {
 }
 
 async function main() {
-  const { quantidade, limpar } = parseArgs()
+  const { quantidade, limpar, pastaGrande } = parseArgs()
   const ramos = escalarRamos(quantidade)
 
   const enviosPrevistos = ramos.reduce(
@@ -395,7 +432,7 @@ async function main() {
     }
 
     await client.query('BEGIN')
-    await gerarVolume(client, ramos)
+    await gerarVolume(client, ramos, pastaGrande)
     await client.query('COMMIT')
     console.log('\nVolume gerado com sucesso.')
   } catch (err) {
