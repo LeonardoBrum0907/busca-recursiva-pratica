@@ -8,19 +8,30 @@ namespace BuscaApi.Infrastructure.Repositorios;
 
 public class EnvioRepository(DapperContext dapperContext) : IEnvioRepository
 {
-    public async Task<IReadOnlyList<ItemPasta>> ListarItensAsync(
-        int idConta, int? idPasta, int? idUsuarioFiltro = null)
+    public async Task<(IReadOnlyList<ItemPasta> Itens, int Total)> ListarItensAsync(
+        int idConta, int? idPasta, int pagina, int tamanhoPagina, int? idUsuarioFiltro = null)
     {
         using var connection = dapperContext.CreateConnection();
 
-        var itens = await connection.QueryAsync<ItemPasta>(QueriesEnvio.QueryItensDoNivel, new
+        var linhas = (await connection.QueryAsync<ItemPastaComTotal>(QueriesEnvio.QueryItensDoNivel, new
         {
             idConta,
             idPasta,
-            idUsuarioFiltro
-        });
+            idUsuarioFiltro,
+            tamanhoPagina,
+            offset = (pagina - 1) * tamanhoPagina
+        })).ToList();
 
-        return itens.ToList();
+        // COUNT(*) OVER () so existe se houver ao menos uma linha na pagina.
+        var total = linhas.Count == 0 ? 0 : (int)linhas[0].Total;
+
+        return (linhas, total);
+    }
+
+    /// <summary>Linha da listagem com o total da pasta, que a query repete em cada linha.</summary>
+    private sealed class ItemPastaComTotal : ItemPasta
+    {
+        public long Total { get; set; }
     }
 
     public async Task<(IReadOnlyList<ArquivoBuscaResultado> Itens, int Total)> BuscarArquivosAsync(

@@ -6,11 +6,13 @@ public interface IEnvioRepository
 {
     /// <summary>
     /// Devolve os filhos diretos da pasta informada (ou as pastas-raiz da conta) mais
-    /// os envios que estao nela. Usado pela navegacao.
+    /// os envios que estao nela, uma pagina por vez. Usado pela navegacao.
     /// </summary>
-    Task<IReadOnlyList<ItemPasta>> ListarItensAsync(
+    Task<(IReadOnlyList<ItemPasta> Itens, int Total)> ListarItensAsync(
         int idConta,
         int? idPasta,
+        int pagina,
+        int tamanhoPagina,
         int? idUsuarioFiltro = null);
 
     /// <summary>

@@ -3,6 +3,8 @@ import type { ItemPasta, Paginacao, TotaisConta } from '../types'
 
 export interface ListarItensOpcoes {
   externalKeyPasta?: string | null
+  pagina?: number
+  tamanhoPagina?: number
   signal?: AbortSignal
 }
 
@@ -32,17 +34,21 @@ async function chamar<T>(url: string, authKey: string, signal?: AbortSignal): Pr
   return (await response.json()) as T
 }
 
-/** Navegacao: conteudo de UM nivel (filhos diretos + envios da pasta). */
+/** Navegacao: conteudo de UM nivel (filhos diretos + envios da pasta), uma pagina por vez. */
 export async function listarItens(
   authKey: string,
   opcoes: ListarItensOpcoes = {},
-): Promise<ItemPasta[]> {
+): Promise<Paginacao<ItemPasta>> {
+  const { externalKeyPasta, pagina = 1, tamanhoPagina = 50, signal } = opcoes
+
   const params = new URLSearchParams()
-  if (opcoes.externalKeyPasta) {
-    params.set('externalKeyPasta', opcoes.externalKeyPasta)
+  params.set('pagina', String(pagina))
+  params.set('tamanhoPagina', String(tamanhoPagina))
+  if (externalKeyPasta) {
+    params.set('externalKeyPasta', externalKeyPasta)
   }
 
-  return chamar<ItemPasta[]>(montarUrl('itens', params), authKey, opcoes.signal)
+  return chamar<Paginacao<ItemPasta>>(montarUrl('itens', params), authKey, signal)
 }
 
 /** Busca: percorre a subarvore inteira a partir da pasta atual (ou da raiz). */

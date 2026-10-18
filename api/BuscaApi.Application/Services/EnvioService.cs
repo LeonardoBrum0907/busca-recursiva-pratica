@@ -17,13 +17,26 @@ public class EnvioService(
 {
     private const int TamanhoPaginaMaximo = 200;
 
-    public async Task<IReadOnlyList<ItemPasta>> ListarItensAsync(Guid externalKeyConta, Guid? externalKeyPasta)
+    public async Task<Paginacao<ItemPasta>> ListarItensAsync(
+        Guid externalKeyConta, Guid? externalKeyPasta, int pagina, int tamanhoPagina)
     {
         var conta = await ResolverContaAsync(externalKeyConta);
         var idPasta = await ResolverIdPastaAsync(externalKeyPasta);
         var idUsuarioFiltro = await ResolverIdUsuarioFiltroAsync(conta);
 
-        return await envioRepository.ListarItensAsync(conta.IdConta, idPasta, idUsuarioFiltro);
+        pagina = Math.Max(1, pagina);
+        tamanhoPagina = Math.Clamp(tamanhoPagina, 1, TamanhoPaginaMaximo);
+
+        var (itens, total) = await envioRepository.ListarItensAsync(
+            conta.IdConta, idPasta, pagina, tamanhoPagina, idUsuarioFiltro);
+
+        return new Paginacao<ItemPasta>
+        {
+            PaginaSelecionada = pagina,
+            TamanhoPagina = tamanhoPagina,
+            Total = total,
+            Dados = itens.ToList()
+        };
     }
 
     public async Task<Paginacao<ArquivoBuscaResultado>> BuscarArquivosAsync(BuscaArquivosQuery query)

@@ -36,7 +36,7 @@ public class EnvioServiceListarItensTests
             .ReturnsAsync((Conta?)null);
 
         await Assert.ThrowsAsync<DataNotFoundException>(
-            () => _envioService.ListarItensAsync(Guid.NewGuid(), null));
+            () => _envioService.ListarItensAsync(Guid.NewGuid(), null, 1, 50));
     }
 
     [Fact(DisplayName = "Deve lançar DataNotFoundException quando a ExternalKeyPasta informada não existe")]
@@ -55,7 +55,7 @@ public class EnvioServiceListarItensTests
             .ReturnsAsync((Pasta?)null);
 
         await Assert.ThrowsAsync<DataNotFoundException>(
-            () => _envioService.ListarItensAsync(conta.ExternalKey, Guid.NewGuid()));
+            () => _envioService.ListarItensAsync(conta.ExternalKey, Guid.NewGuid(), 1, 50));
     }
 
     [Fact(DisplayName = "Deve devolver o conteúdo da pasta informada quando o usuário é admin")]
@@ -79,14 +79,15 @@ public class EnvioServiceListarItensTests
             .Setup(x => x.IsAdmin(42))
             .Returns(true);
         _envioRepoMock
-            .Setup(x => x.ListarItensAsync(42, 7, null))
-            .ReturnsAsync(itensRepo);
+            .Setup(x => x.ListarItensAsync(42, 7, 1, 50, null))
+            .ReturnsAsync((itensRepo, 1));
 
-        var itens = await _envioService.ListarItensAsync(conta.ExternalKey, pasta.ExternalKey);
+        var pagina = await _envioService.ListarItensAsync(conta.ExternalKey, pasta.ExternalKey, 1, 50);
 
-        Assert.Single(itens);
-        Assert.Equal("Contrato ACME 2026", itens[0].Nome);
-        _envioRepoMock.Verify(x => x.ListarItensAsync(42, 7, null), Times.Once);
+        Assert.Single(pagina.Dados);
+        Assert.Equal("Contrato ACME 2026", pagina.Dados[0].Nome);
+        Assert.Equal(1, pagina.Total);
+        _envioRepoMock.Verify(x => x.ListarItensAsync(42, 7, 1, 50, null), Times.Once);
         _usuarioRepoMock.Verify(x => x.GetByAuthKeyAsync(It.IsAny<Guid>()), Times.Never);
     }
 
@@ -109,12 +110,12 @@ public class EnvioServiceListarItensTests
             .Setup(x => x.GetByAuthKeyAsync(usuario.AuthKey))
             .ReturnsAsync(usuario);
         _envioRepoMock
-            .Setup(x => x.ListarItensAsync(10, null, 99))
-            .ReturnsAsync([]);
+            .Setup(x => x.ListarItensAsync(10, null, 1, 50, 99))
+            .ReturnsAsync(([], 0));
 
-        await _envioService.ListarItensAsync(conta.ExternalKey, null);
+        await _envioService.ListarItensAsync(conta.ExternalKey, null, 1, 50);
 
-        _envioRepoMock.Verify(x => x.ListarItensAsync(10, null, 99), Times.Once);
+        _envioRepoMock.Verify(x => x.ListarItensAsync(10, null, 1, 50, 99), Times.Once);
     }
 
     [Fact(DisplayName = "Deve lançar DataNotFoundException quando o usuário não pertence à conta")]
@@ -137,7 +138,34 @@ public class EnvioServiceListarItensTests
             .ReturnsAsync(usuario);
 
         await Assert.ThrowsAsync<DataNotFoundException>(
-            () => _envioService.ListarItensAsync(conta.ExternalKey, null));
+            () => _envioService.ListarItensAsync(conta.ExternalKey, null, 1, 50));
+    }
+
+    [Theory(DisplayName = "Deve limitar página e tamanho de página antes de consultar o repositório")]
+    [InlineData(0, 50, 1, 50)]
+    [InlineData(3, 0, 3, 1)]
+    [InlineData(2, 100000, 2, 200)]
+    public async Task ListarItensAsync_PaginacaoForaDoLimite_AjustaAntesDeConsultar(
+        int pagina, int tamanhoPagina, int paginaEsperada, int tamanhoEsperado)
+    {
+        var conta = new Conta { IdConta = 42, ExternalKey = Guid.NewGuid() };
+
+        _contaRepoMock
+            .Setup(x => x.GetByExternalKeyAsync(conta.ExternalKey))
+            .ReturnsAsync(conta);
+        _authUserMock
+            .Setup(x => x.IsAdmin(42))
+            .Returns(true);
+        _envioRepoMock
+            .Setup(x => x.ListarItensAsync(42, null, paginaEsperada, tamanhoEsperado, null))
+            .ReturnsAsync(([], 0));
+
+        var resultado = await _envioService.ListarItensAsync(conta.ExternalKey, null, pagina, tamanhoPagina);
+
+        Assert.Equal(paginaEsperada, resultado.PaginaSelecionada);
+        Assert.Equal(tamanhoEsperado, resultado.TamanhoPagina);
+        _envioRepoMock.Verify(
+            x => x.ListarItensAsync(42, null, paginaEsperada, tamanhoEsperado, null), Times.Once);
     }
 
     [Fact(DisplayName = "Deve lançar DataNotFoundException ao obter totais de conta inexistente")]

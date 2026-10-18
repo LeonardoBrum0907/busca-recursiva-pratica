@@ -10,15 +10,17 @@ namespace BuscaApi.Controllers;
 public class EnvioController(IEnvioService envioService) : ControllerBase
 {
     /// <summary>
-    /// Lista o conteudo de uma pasta: filhos diretos e envios daquele nivel.
+    /// Lista o conteudo de uma pasta: filhos diretos e envios daquele nivel, paginado.
     /// </summary>
     [HttpGet("conta/{externalKeyConta:guid}/itens")]
-    public async Task<ActionResult<IReadOnlyList<ItemPasta>>> ListarItens(
+    public async Task<ActionResult<Paginacao<ItemPasta>>> ListarItens(
         Guid externalKeyConta,
-        [FromQuery] Guid? externalKeyPasta = null)
+        [FromQuery] Guid? externalKeyPasta = null,
+        [FromQuery] int pagina = 1,
+        [FromQuery] int tamanhoPagina = 50)
     {
-        var itens = await envioService.ListarItensAsync(externalKeyConta, externalKeyPasta);
-        return Ok(itens);
+        return Ok(await envioService.ListarItensAsync(
+            externalKeyConta, externalKeyPasta, pagina, tamanhoPagina));
     }
 
     /// <summary>
