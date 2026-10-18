@@ -22,3 +22,8 @@ CREATE INDEX IF NOT EXISTS ix_pasta_idpastapai
 -- Acelera a etapa "envios de uma subarvore"
 CREATE INDEX IF NOT EXISTS ix_envio_idpasta_status
     ON envio (idpasta, statusregistro);
+
+-- A lista de destinatarios de cada envio (LEFT JOIN LATERAL em /itens e /buscar)
+-- filtra destinatario por idenvio. Sem este indice, cada envio varre a tabela inteira.
+CREATE INDEX IF NOT EXISTS ix_destinatario_idenvio
+    ON destinatario (idenvio);
